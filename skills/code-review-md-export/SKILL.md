@@ -22,6 +22,7 @@ For this repository, assume:
 Do not create or export extra review files by default.
 
 Only update or create markdown files when the user explicitly asks for that file-level change.
+If the user only asks for a code review or discussion, respond in chat unless they explicitly name a markdown file to update.
 
 ## Required workflow
 
