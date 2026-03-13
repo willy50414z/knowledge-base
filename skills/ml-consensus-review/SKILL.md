@@ -1,67 +1,131 @@
 ---
 name: ml-consensus-review
-description: 專門用於 ML 專家的多維度審核、衝突解決與執行計畫檢驗。當多個 Session 文件（如 step2.4_session_gemini.md）對同一份程式碼產生不同意見時，使用此流程達成技術共識，並將產出歸檔至指定的實驗命名空間。
+description: Review a draft execution plan with another LLM through llm_svc.py, reconcile differences, and only then finalize the plan.
 ---
 
-# ML Consensus Review Workflow (Namespaced)
+# ML Consensus Review Skill
 
-當被要求以「ML 專家」角度驗證多個來源的風險建議並匯出執行計畫時，必須遵循此標準流程。
+Use this skill when the task requires a non-trivial execution plan, especially for ML, trading, validation, architecture, or research-sensitive work.
 
-## 1. 實驗命名空間規範 (Experiment Namespacing)
+## Goal
 
-- **`reports/`**：存放 `step2.x_session_gemini.md` 等共識報告與 `report_{timestamp}.md` 實驗績效報告。
-- **`logs/`**：存放 `session_codex.md` 或訓練過程的細節紀錄。
-- **`artifacts/`**：存放 `model.joblib`、`metadata.json` 與 `scaler.joblib`。
+Produce a final execution plan only after:
 
-**執行原則**：在建立任何新文件前，必須先確認或詢問當前的 `experiment_name`（例如：`bti_xgb_v1`）。
+1. drafting an initial plan locally
+2. sending that draft to another LLM through `com/willy/trade_bot/service/llm_svc.py`
+3. asking the other LLM to review it from the most relevant expert perspective
+4. reconciling both views into a final plan
 
-## 2. 核心流程階段 (Core Workflow Phases)
+## Required Invocation Path
 
-### Phase 1: 衝突識別與審核 (Conflict Identification)
+- Use `com/willy/trade_bot/service/llm_svc.py`
+- Do not bypass it with ad hoc direct CLI calls if this workflow is requested
+- Select the target LLM and expert framing based on the task
 
-- **識別未達成共識項目**：對比不同來源對同一份代碼的修改建議。
-- **批閱評論**：針對每一項建議，根據代碼實際邏輯進行點評。
-- **補充意見**：主動補充現有文件未提及的關鍵 ML 風險（如標籤語意、回測偏誤）。
+## Reviewer Selection
 
-### Phase 2: 爭議整理與共識判定 (Conflict Resolution)
+Choose the reviewer role that best matches the task:
 
-- **整理爭議項目**：明確區分「高優先級核心風險」與「低優先級研究增強項」。
-- **判定狀態**：標註為 `[Consensus Reached]` 或 `[Pending Discussion / Expert Overruled]`。
+- ML model training or labeling changes: financial ML expert
+- Strategy logic or backtest assumptions: quantitative trading expert
+- Data pipeline, joins, or feature generation: data engineering expert
+- Validation design, calibration, or split logic: ML validation expert
+- Refactor, service boundaries, or architecture: senior software architect
+- Reliability, failure modes, or safety controls: risk-focused reviewer
 
-### Phase 3: 執行計畫驗證 (Plan Validation)
+If the task spans multiple areas, pick the dominant risk area first.
 
-- 根據共識結果，整理出具備優先級的 **Consolidated Next Actions**。
+## Workflow
 
----
+### Phase 1: Draft the Initial Plan
 
-## 3. 匯出 Markdown 固定格式 (Standard Output Format)
+Create a preliminary plan that includes:
 
-輸出的 `.md` 文件必須包含以下結構：
+- objective
+- assumptions
+- constraints
+- proposed execution steps
+- key risks
+- expected verification
 
-### A. 溯源資訊 (Metadata)
+This is not the final plan.
 
-- **實驗名稱 (Experiment)**: `{experiment_name}`
-- **來源文件**: `[來源文件A.md]`, `[來源文件B.md]`
-- **目標代碼**: `[目標程式碼.py]`
+### Phase 2: Ask Another LLM to Review the Draft
 
-### B. 核心風險驗證 (Consolidated Validation)
+Send the draft plan to another LLM through `llm_svc.py` and instruct it to:
 
-- 使用 `###` 標題區分風險類別。
-- 必須包含：**驗證結果**、**專家評估**、**修正建議**。
+- review as a domain expert
+- identify missing steps
+- challenge weak assumptions
+- detect correctness, leakage, validation, or trading risks when relevant
+- propose reordered or additional steps
+- distinguish blockers from optional improvements
 
-### C. 爭議項目裁決表 (Expert Ruling Table)
+The review request should ask for actionable critique, not generic feedback.
 
-| 爭議項目 | 來源 A 觀點 | 來源 B 觀點 | **專家裁決 (共識狀態)**    |
-|:-----|:--------|:--------|:-------------------|
-| 項目名稱 | 觀點摘要    | 觀點摘要    | [達成共識/尚須討論] + 裁決理由 |
+### Phase 3: Reconcile the Opinions
 
-### D. 綜合執行清單 (Consolidated Next Actions)
+Compare:
 
-- 按優先級（Phase 1: Correctness, Phase 2: Validation, etc.）排序。
+- your local draft
+- the external LLM review
 
----
+Then explicitly decide:
 
-## 4. 執行原則 (Operational Principles)
+- what feedback is adopted
+- what feedback is rejected
+- why each disagreement is resolved that way
 
-1. **代碼為唯一真理**：以實際代碼邏輯作為判斷基準。
-2. **優先修復阻塞性風險 (Blockers)**：標籤正確性、回測信噪比優先於 HPO 或特徵選擇。
+If the external review identifies a high-risk issue, update the plan before finalizing it.
+
+### Phase 4: Produce the Final Plan
+
+The final plan should include:
+
+- the revised execution steps
+- integrated safeguards
+- verification approach
+- any open questions or blockers
+
+If consensus was partial, say so clearly.
+
+## Minimum Final Output Structure
+
+When summarizing the final plan, include:
+
+1. Draft plan summary
+2. External expert review summary
+3. Reconciled decisions
+4. Final execution plan
+
+## Prompting Guidance
+
+The external review prompt should contain:
+
+- task context
+- relevant repo paths
+- draft plan
+- constraints
+- explicit request to act as a domain expert
+- explicit request to find missing or risky steps
+
+Keep the prompt concrete and scoped to the real task.
+
+## Quality Bar
+
+The plan is not final until:
+
+- another LLM has reviewed it through `llm_svc.py`
+- important disagreements are resolved
+- major risks have been incorporated or consciously rejected with reasons
+
+## Domain-Specific Emphasis
+
+For ML and trading work, the review must explicitly check:
+
+- look-ahead bias
+- target leakage
+- split and validation correctness
+- calibration or thresholding assumptions
+- unrealistic backtest assumptions
+- artifact and reproducibility implications
