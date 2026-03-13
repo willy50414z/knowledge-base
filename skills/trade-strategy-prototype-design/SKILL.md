@@ -1,26 +1,21 @@
----
-name: trade-strategy-prototype-design
-description: Define entry, exit, risk control, and regime logic before coding the trading strategy.
----
-
 # Trade Strategy Prototype Design Skill
 
-Use this skill when the task is to formalize the trading logic before implementation.
+Formalize trading logic specify before implementation.
 
-## Goal
+## Project Standards
 
-Create a clear strategy specification that can be implemented without ambiguity.
+- **Doc Path**: Save the design spec as `com/willy/trade_bot/ml/<StrategyName>/spec_V<Major>.md`.
+- **Constraint**: Must explicitly list all `dbg_` columns that will be used for later performance analysis.
 
 ## Required Work
 
-- define entry logic
-- define exit logic
-- define stop-loss and take-profit behavior
-- define leverage and sizing rules
-- define regime filters and block conditions
+- Define Entry/Exit conditions precisely.
+- Define **Risk Circuit Breaker**: When should the strategy stop trading?
+- Define Regime Filters: (e.g., only trade when ADX > 25).
+- List all hyper-parameters to be tuned later.
 
-## Output
+## General Decision Rules
 
-- strategy logic spec
-- risk control spec
-- prototype assumptions
+- Do not implement if the entry, exit, and stop conditions are still ambiguous in plain language.
+- Do not proceed if the prototype has no explicit rule for stopping or reducing risk during abnormal behavior.
+- Do not mark a parameter as tunable unless its trading meaning is understood well enough to justify why it exists.

@@ -1,25 +1,20 @@
----
-name: trade-strategy-parameter-tuning
-description: Tune strategy parameters carefully while checking robustness instead of maximizing historical fit.
----
-
 # Trade Strategy Parameter Tuning Skill
 
-Use this skill when the task starts from hyperparameter search, threshold tuning, or rule sensitivity analysis.
+Optimize strategy parameters without over-fitting.
 
-## Goal
+## Project Standards
 
-Improve strategy stability without creating fragile historical overfit.
+- **Tooling**: Use `freqtrade_executor.py` in `hyperopt` mode.
+- **Validation**: Tuned parameters must be re-tested on a clean OOS dataset.
 
 ## Required Work
 
-- tune a limited set of important parameters
-- avoid changing too many dimensions at once
-- re-check OOS behavior after meaningful changes
-- prefer stable parameter regions over sharp optima
+- Define searchable spaces for indicators and risk parameters.
+- Target **Sortino Ratio** or **Sharpe Ratio** instead of just Total Profit.
+- Inspect the "Best 10" results: If they are too diverse, the logic may be unstable.
 
-## Output
+## General Decision Rules
 
-- tuned parameter set
-- sensitivity notes
-- updated validation result
+- Do not start tuning until there is a stable baseline implementation and an approved OOS validation path.
+- Stop tuning if improvements appear only in isolated parameter pockets with no nearby stability.
+- Treat large variation among top-ranked parameter sets as a sign to re-check strategy logic before expanding the search.

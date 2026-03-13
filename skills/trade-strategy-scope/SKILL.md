@@ -1,27 +1,21 @@
----
-name: trade-strategy-scope
-description: Define the research scope, trading constraints, and success criteria for a BTC futures strategy before implementation begins.
----
-
 # Trade Strategy Scope Skill
 
-Use this skill when the task starts at the research-definition stage.
+Define research scope, trading constraints, and success criteria for a trading strategy.
 
-## Goal
+## Project Standards
 
-Define exactly what market, timeframe, execution assumptions, and evaluation criteria the strategy must satisfy.
+- **Folder Path**: All research artifacts must be initialized in `com/willy/trade_bot/ml/<StrategyName>/`.
+- **Naming**: Use a clear Strategy Family name (e.g., `AMRS`, `BTI`).
 
 ## Required Work
 
-- specify symbol and market type
-- specify timeframe and trading style
-- specify long/short scope
-- specify fee, slippage, and leverage assumptions
-- specify position sizing and risk constraints
-- specify success criteria and rejection criteria
+- Specify Symbol (e.g., BTC/USDT) and Market Type (Futures/Spot).
+- Define Success Criteria: Must specify **Target Profit Factor** and **Max Allowable Drawdown**.
+- Define Rejection Criteria: e.g., "If Sharpe Ratio < 1.2 in OOS, reject the hypothesis."
+- Define Fee & Slippage: Default to 0.04% fee and 0.1% slippage for Binance Futures.
 
-## Output
+## General Decision Rules
 
-- research brief
-- explicit constraints
-- go / no-go evaluation standard
+- Do not start research execution until the market, execution venue, timeframe, and position style are explicitly defined.
+- Do not proceed if success criteria only describe upside and do not define acceptable drawdown or rejection conditions.
+- Do not proceed if cost assumptions are missing, because later profitability conclusions will not be trustworthy.

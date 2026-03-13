@@ -1,25 +1,15 @@
----
-name: trade-strategy-performance-analysis
-description: Diagnose where strategy performance comes from, where it fails, and whether the observed edge is trustworthy.
----
-
 # Trade Strategy Performance Analysis Skill
 
-Use this skill when the task starts from interpreting backtest or validation results.
+Audit strategy performance and identify edge cases.
 
-## Goal
+## Project Standards
 
-Explain the sources of profit, drawdown, and failure modes before proposing changes.
+- **Tooling**: MUST run `com/willy/trade_bot/freqtrade/analyze_backtest_result.py`.
+- **Artifacts**: Review the generated `report_<stem>_<strategy>.md` and charts in `user_data/backtest_results/reports/`.
 
 ## Required Work
 
-- inspect regime dependence
-- inspect drawdown and tail-risk structure
-- inspect trade distribution and concentration
-- identify whether returns depend on narrow conditions
-
-## Output
-
-- performance diagnosis
-- risk diagnosis
-- failure mode summary
+- Analyze **Signal Win Rate vs Trade Win Rate**: Identify if exit logic is cutting winners or losers early.
+- Review **Gate Filter Funnel**: Check if any `dbg_` filters are blocking profitable trades (false positives).
+- Check **Slippage Sensitivity**: Ensure the strategy is still profitable with 0.1% slippage.
+- Document "Pain Points" for the next iteration.

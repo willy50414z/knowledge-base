@@ -1,26 +1,14 @@
----
-name: trade-strategy-backtest-validation
-description: Backtest the strategy, compare it against baselines, and run the required validation checks before further optimization.
----
-
 # Trade Strategy Backtest Validation Skill
 
-Use this skill when the task starts from backtesting, bias checks, or OOS validation.
+Standardize backtesting and validation processes using project tools.
 
-## Goal
+## Project Standards
 
-Decide whether the implemented strategy is credible enough to continue.
+- **Tooling**: MUST use `com/willy/trade_bot/freqtrade/freqtrade_executor.py` for running backtests.
+- **Verification**: If `Win Rate > 70%` with high frequency, a mandatory Look-ahead bias check is required.
 
 ## Required Work
 
-- run backtests with explicit execution assumptions
-- compare results with baselines
-- inspect drawdown, trade count, and stability
-- run required validation checks
-- use `knowledge-base/skills/ml-trading-strategy/SKILL.md` for ML-specific checks
-
-## Output
-
-- backtest summary
-- validation result
-- go / no-go decision
+- Run standard backtest for the specified `timerange`.
+- Verify **OOS (Out-of-Sample) Performance**: If OOS profit is < 50% of the training period profit, mark the strategy as unstable.
+- Check `Drawdown Duration`: Ensure recovery time is within project constraints (e.g., < 30 days).

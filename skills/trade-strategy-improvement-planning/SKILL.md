@@ -1,25 +1,20 @@
----
-name: trade-strategy-improvement-planning
-description: Turn strategy weaknesses into a prioritized improvement plan with explicit validation and rejection criteria.
----
-
 # Trade Strategy Improvement Planning Skill
 
-Use this skill when the task starts from iteration planning after a completed analysis.
+Refine trading strategies based on historical audit results.
 
-## Goal
+## Project Standards
 
-Create the next research cycle from evidence rather than ad hoc experimentation.
+- **Folder Path**: Document improvements in `com/willy/trade_bot/ml/<StrategyName>/improvement_V<Major>.md`.
+- **Versioning**: Decide whether to bump the `Major` or `Minor` version based on the planned change.
 
 ## Required Work
 
-- list current weaknesses
-- map each weakness to a plausible cause
-- propose targeted changes
-- define validation method and rejection conditions
+- Identify the specific regime (e.g., Sideways, High Vol) where the strategy underperforms.
+- Formulate a new hypothesis to fix the identified "Pain Point."
+- Update the Prototype Design spec before re-implementing.
 
-## Output
+## General Decision Rules
 
-- prioritized improvement plan
-- expected effect of each change
-- next validation plan
+- Do not propose changes that are not linked to a specific observed weakness or failure mode.
+- Do not batch unrelated improvements into one iteration if that would make validation attribution unclear.
+- Do not re-implement before the revised hypothesis and prototype changes are written down clearly enough to test.

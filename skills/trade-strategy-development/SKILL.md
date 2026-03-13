@@ -1,47 +1,48 @@
----
-name: trade-strategy-development
-description: Develop a BTC futures trading strategy from research idea to deployable execution using a staged workflow, while delegating ML-specific checks to the existing ml-trading-strategy skill.
----
+# Trade Strategy Development Skill (Project Master)
 
-# Trade Strategy Development Skill
+Shared development standards for the `binance` repository, ensuring consistent file placement, coding style, and versioning across the trading bot lifecycle.
 
-Use this skill when the user wants to design, implement, validate, improve, or operationalize a trading strategy from concept to production readiness.
+## 1. Directory Structure Standards
 
-## Goal
+Always place files according to these package boundaries:
 
-Produce a strategy workflow that moves through these stages in order:
+- **Core Bot Logic**: `com/willy/trade_bot/`
+    - **Freqtrade**: `com/willy/trade_bot/freqtrade/` (Strategies, executors, and analysis tools)
+    - **ML Research**: `com/willy/trade_bot/ml/<StrategyName>/` (Each strategy family has its own sub-folder)
+    - **Services**: `com/willy/trade_bot/service/` (LLM, data, and exchange services)
+    - **Data/DTO**: `com/willy/trade_bot/dto/` and `com/willy/trade_bot/data/`
+- **Legacy/Binance Shared**: `com/willy/binance/` (General binance utilities; avoid adding new trading logic here)
+- **Knowledge Base**: `knowledge-base/` (Workflow docs and skills)
 
-1. define research scope
-2. collect and validate data
-3. form strategy hypothesis and baselines
-4. design the strategy prototype
-5. implement the strategy in Freqtrade
-6. backtest and validate
-7. tune parameters carefully
-8. analyze performance
-9. plan improvements
-10. prepare for deployment
+## 2. Strategy Versioning & Naming
 
-## Rule
+To manage multiple strategies and iterations, follow the `Major_Minor` scheme:
 
-- Keep this skill focused on end-to-end workflow control.
-- Do not duplicate ML leakage, labeling, walk-forward, or baseline validation details that already belong in `knowledge-base/skills/ml-trading-strategy/SKILL.md`.
-- When the strategy uses ML, invoke that skill alongside this one.
-- If the task starts from a specific stage instead of a full workflow, prefer the matching step-specific skill under `knowledge-base/skills/trade-strategy-*`.
+- **Naming Format**: `<StrategyName>_V<Major>_<Minor>_Strategy.py`
+    - **Major (大版本)**: Core logic changes (e.g., new indicators, different timeframe, change from Long to Short).
+    - **Minor (小版本)**: Parameter optimization (e.g., tweaking MA periods, changing threshold values).
+- **Strategy Families**: Group related iterations in the same folder under `trade_bot/freqtrade/strategy/<StrategyName>/`.
+- **Class Names**: Must match the filename (e.g., `class AMRS_V4_1_Strategy`).
 
-## Referenced Step Skills
+## 3. Coding Conventions (Code Style)
 
-- `trade-strategy-scope`
-- `trade-strategy-data-validation`
-- `trade-strategy-hypothesis-baseline`
-- `trade-strategy-prototype-design`
-- `trade-strategy-freqtrade-implementation`
-- `trade-strategy-backtest-validation`
-- `trade-strategy-parameter-tuning`
-- `trade-strategy-performance-analysis`
-- `trade-strategy-improvement-planning`
-- `trade-strategy-deployment-prep`
+### Imports
+- **Absolute Imports**: Always use `from com.willy.trade_bot...`.
+- **No Circulars**: Keep DTOs and Utils independent of Services.
 
-## Expected Outcome
+### Path Management (Critical for Containerization)
+- **NO Hardcoded Paths**: Never use `E:\code\...` or `C:\Users\...`.
+- **Dynamic Roots**: Reference the repo root dynamically:
+  ```python
+  REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+  ```
+- **Config Util**: Use `config_util("project.path").get("root_dir")` for global directory lookups.
 
-The strategy should progress from idea to an auditable, testable, and deployable workflow, with clear go/no-go checks at each stage.
+### Freqtrade Specifics
+- **Auditability**: Include `dbg_` prefixed columns in the strategy dataframe for every intermediate calculation.
+- **Self-Contained**: Ensure the strategy can run with only the `config.json` and its local strategy file.
+
+## 4. Workflow Integrity
+
+- **Validation**: Every version bump (Minor or Major) requires a backtest run via `freqtrade_executor.py` and a report via `analyze_backtest_result.py`.
+- **Migration Policy**: `com/willy/binance/freqtrade/` is deprecated. Move all active logic to `com/willy/trade_bot/freqtrade/`.

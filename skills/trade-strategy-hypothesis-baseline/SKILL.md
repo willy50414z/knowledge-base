@@ -1,25 +1,19 @@
----
-name: trade-strategy-hypothesis-baseline
-description: Turn a trading idea into a testable hypothesis and define the baselines it must beat.
----
-
 # Trade Strategy Hypothesis Baseline Skill
 
-Use this skill when the task starts from strategy ideation or research planning.
+Define testable trading ideas and comparison baselines.
 
-## Goal
+## Project Standards
 
-Convert an intuition into a falsifiable trading hypothesis with explicit comparison targets.
+- **Baseline Requirement**: Every strategy MUST be compared against a "Buy and Hold" and a "Simple Trend Follower" (e.g., SMA 20/50 Cross).
 
 ## Required Work
 
-- write the core market hypothesis
-- choose rule-based, ML-based, or hybrid framing
-- define at least one simple baseline
-- define pass and fail criteria
+- Document the core alpha logic: Why does this strategy make money?
+- Define **Hard Baseline**: The strategy must outperform the baseline by at least 20% in net profit with lower drawdown.
+- If ML is used, the baseline must be the non-ML version of the same logic.
 
-## Output
+## General Decision Rules
 
-- strategy hypothesis
-- baseline set
-- evaluation plan
+- Do not proceed if the alpha logic cannot be stated as a falsifiable market hypothesis.
+- Do not proceed if the baseline is so weak that beating it does not establish real trading value.
+- If ML is used, do not compare only against unrelated baselines; at least one baseline must isolate whether ML adds value over the same underlying logic.
