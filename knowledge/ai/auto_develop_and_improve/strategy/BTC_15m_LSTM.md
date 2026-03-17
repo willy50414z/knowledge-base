@@ -5,7 +5,7 @@
 你的終極目標是使用 Freqtrade + ML 構建一個可以回測與實戰的 BTC/USDT futures 交易策略。
 回測流程中必須包含 Freqtrade 的標準流程，並檢查 lookahead / recursive 偏差，以及執行 walk-forward OOS 驗證。
 
-> **Note:** 構建交易與 ML 策略時的詳細注意事項，請參閱 `ML Trading Strategy Development Skill` (knowledge-base\skills\ml-trading-strategy\SKILL.md) 的檢查與校正規範。
+> **Note:** 構建交易與 ML 策略時的詳細注意事項，請參閱 `ML Trading Strategy Development Skill` (`knowledge-base/skills/domain-skills/ml/ml-trading-strategy/SKILL.md`) 的檢查與校正規範。
 
 # Working Logic (ReAct Framework)
 在進行策略開發時，請遵循以下步驟：

@@ -66,5 +66,5 @@
 
 ## 使用指引
 - 各步驟的詳細 **Detailed Skill** 請參考 `knowledge-base/skills/trade-strategy-*`。
-- 開發時應嚴格遵守 `knowledge-base/skills/trade-strategy-development/SKILL.md` 的路徑與命名規範。
+- 開發時應嚴格遵守 `knowledge-base/skills/project-skills/trade-strategy/trade-strategy-development/SKILL.md` 的路徑與命名規範。
 - 若任務包含「需要直接改 repo、補腳本、修 skill、同步更新 markdown」這類落地工作，預設優先讓 **Codex** 擔任 Worker，再交由其他模型做 verifier 或專項分析。
