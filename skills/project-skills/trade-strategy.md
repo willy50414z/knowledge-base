@@ -81,6 +81,7 @@ Load only the skill(s) that match the current task.
 | Validate regime filter calibration | `regime-filter-validation` | — |
 | Determine what to do next (any phase) | `strategy-cycle-orchestrator` | — |
 | Compare two experiment results | `experiment-compare` | — |
+| Score backtest results against objective thresholds | `strategy-performance-evaluation` | `oos-validation-gate` |
 | Extract lessons after iteration | `knowledge-extraction` | — |
 | Multi-agent / LLM task routing | `llm-orchestration` | — |
 | Major strategy decision needing multi-LLM input | `multi-agent-consensus` | `llm-orchestration` |
@@ -121,6 +122,7 @@ Load only the skill(s) that match the current task.
 - [Trading Domain](../domain-skills/trading/trading-domain/SKILL.md)
 - [Data Pipeline](../domain-skills/trading/data-pipeline/SKILL.md) — fetch / validate / cache
 - [Regime Filter Validation](../domain-skills/trading/regime-filter-validation/SKILL.md) — validate regime filter calibration after backtest
+- [Strategy Performance Evaluation](../domain-skills/trading/strategy-performance-evaluation/SKILL.md) — score backtest results against numeric thresholds; covers PF, Sharpe, drawdown, overfitting, regime coverage, and crypto-specific adjustments
 
 ### ML
 - [ML Workflow](../domain-skills/ml/ml-workflow/SKILL.md)
