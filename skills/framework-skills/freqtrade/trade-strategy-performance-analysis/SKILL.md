@@ -18,3 +18,12 @@ Audit strategy performance and identify edge cases.
 - Review **Gate Filter Funnel**: Check if any `dbg_` filters are blocking profitable trades (false positives).
 - Check **Slippage Sensitivity**: Ensure the strategy is still profitable with 0.1% slippage.
 - Document "Pain Points" for the next iteration.
+
+## Code Reference
+
+| Purpose | Path |
+|---------|------|
+| Generate HTML analysis report | `lib/strategy/analytics/analyze_backtest_result.py` |
+| Backtest result artifacts | `freqtrade/user_data/backtest_results/` |
+| Generated HTML reports | `freqtrade/reports/` |
+| Strategy-local reports | `strategies/<family>/reports/` |

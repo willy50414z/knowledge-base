@@ -25,3 +25,15 @@ Implement strategies in Freqtrade with auditable, reproducible behavior.
 - Do not proceed if entry, exit, or risk-control behavior depends on hidden state that cannot be audited from the dataframe or strategy code.
 - Do not proceed if informative timeframe handling, config assumptions, or runtime dependencies differ materially from the intended live setup.
 - Do not proceed if the strategy cannot be executed reproducibly with the documented strategy file, config, and required artifacts.
+
+## Code Reference
+
+| Purpose | Path |
+|---------|------|
+| Run backtesting / hyperopt | `lib/endpoints/freqtrade.py` |
+| Freqtrade execution adapter | `lib/strategy/execution/freqtrade_executor.py` |
+| Generate strategy config | `lib/endpoints/generate_freqtrade_config.py` |
+| Base Freqtrade config template | `freqtrade/configs/base.json` |
+| Strategy .py file location | `freqtrade/strategies/<StrategyClass>.py` |
+| Strategy-local config | `strategies/<family>/engine/freqtrade/config.json` |
+| Technical indicators (TA-Lib wrapper) | `lib/ohlcv_data_handler/tech_idx_svc.py` |

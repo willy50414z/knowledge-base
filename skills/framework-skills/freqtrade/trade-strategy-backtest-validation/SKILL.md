@@ -17,3 +17,12 @@ Standardize backtesting and validation processes using project tools.
 - Run standard backtest for the specified `timerange`.
 - Verify **OOS (Out-of-Sample) Performance**: If OOS profit is < 50% of the training period profit, mark the strategy as unstable.
 - Check `Drawdown Duration`: Ensure recovery time is within project constraints (e.g., < 30 days).
+
+## Code Reference
+
+| Purpose | Path |
+|---------|------|
+| Run backtest via CLI | `lib/endpoints/freqtrade.py` |
+| Execution adapter | `lib/strategy/execution/freqtrade_executor.py` |
+| Backtest result artifacts | `freqtrade/user_data/backtest_results/` |
+| Record results as knowledge | `knowledge-base/knowledge/backtest-records/` (see backtest-record-standard.md) |

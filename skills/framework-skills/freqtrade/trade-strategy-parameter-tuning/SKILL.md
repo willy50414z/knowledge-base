@@ -23,3 +23,12 @@ Optimize strategy parameters without over-fitting.
 - Do not start tuning until there is a stable baseline implementation and an approved OOS validation path.
 - Stop tuning if improvements appear only in isolated parameter pockets with no nearby stability.
 - Treat large variation among top-ranked parameter sets as a sign to re-check strategy logic before expanding the search.
+
+## Code Reference
+
+| Purpose | Path |
+|---------|------|
+| Run hyperopt via CLI | `lib/endpoints/freqtrade.py --mode hyperopt` |
+| Execution adapter | `lib/strategy/execution/freqtrade_executor.py` |
+| Hyperopt results | `freqtrade/user_data/hyperopt_results/` |
+| Record tuning experiments | `strategies/<family>/experiments/` |

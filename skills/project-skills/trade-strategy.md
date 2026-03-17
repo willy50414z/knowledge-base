@@ -1,160 +1,88 @@
 # Trade Strategy Project Skills
 
-Use this file as the main entry point for repository-specific skills in `trade_strategy`.
+> **Quick context** — This is a strategy-centric trading research repo.
+> Active engine: Freqtrade (backtest). Data source: Binance (futures & spot).
+> Strategy artifacts live in `strategies/<family>/`. Code lives in `lib/`. Engine integration in `freqtrade/`.
 
-## Architecture Direction
+---
 
-Treat this repository as a strategy-centric trading research and execution workspace.
+## Implemented Code — Load Before Modifying
 
-The repository should support:
+| Module | Path |
+|--------|------|
+| Freqtrade executor | `lib/strategy/execution/freqtrade_executor.py` |
+| Backtest analysis | `lib/strategy/analytics/analyze_backtest_result.py` |
+| Freqtrade CLI endpoint | `lib/endpoints/freqtrade.py` |
+| Freqtrade config generator | `lib/endpoints/generate_freqtrade_config.py` |
+| Binance market data | `lib/client/crypto_exchange/binance_svc.py` |
+| Feature file persistence | `lib/storage/feature_store.py` |
+| Technical indicators | `lib/ohlcv_data_handler/tech_idx_svc.py` |
+| ML utilities | `lib/ml/ml_svc.py` |
+| Telegram notification | `lib/client/notification/telegram_svc.py` |
+| LLM routing | `lib/llm_agent/llm_svc.py` |
 
-- many strategy families
-- many markdown artifacts for hypothesis, design, review, run history, and performance analysis
-- Freqtrade as the current backtest engine
-- future expansion to other exchanges, products, execution engines, and external services
+Key config paths:
+- Shared Freqtrade base config: `freqtrade/configs/base.json`
+- Strategy-local Freqtrade config: `strategies/<family>/engine/freqtrade/config.json`
+- Feature data: `data/features/<EXCHANGE>/<MARKET_TYPE>/`
 
-## Recommended Repository Layout
+For record placement rules (reports/, experiments/, sessions/, reviews/), see:
+→ `knowledge-base/skills/project-skills/trade-strategy/strategy-workflow/SKILL.md`
 
-Use this structure as the target layout for future work and gradual migration.
+---
 
-```text
-trade_strategy/
-  lib/
-    endpoints/                  # CLI / agent entry points
-    client/
-      crypto_exchange/          # Exchange and market-data adapters
-      execution_engine/         # Backtest/live engine adapters
-      notification/             # Telegram or other notification adapters
-      storage/                  # S3, DB, artifact storage adapters
-    strategy/
-      research/                 # Strategy-domain workflows and orchestration
-      execution/                # Strategy-to-engine mapping logic
-      analytics/                # Performance analysis and review helpers
-      registry/                 # Strategy metadata and discovery
-    llm_agent/                  # LLM routing and agent integrations
-    utils/                      # Shared utilities
-  freqtrade/
-    strategies/                # Freqtrade strategy implementations
-    configs/                   # Engine-specific config templates / overrides
-    reports/                   # Generated backtest analysis outputs
-  data/
-    market/                    # Raw or normalized OHLCV and market data
-    features/                  # Derived feature sets
-    snapshots/                 # Reproducible dataset snapshots
-  strategies/
-    <strategy_family>/
-      README.md                # Short strategy index
-      scope.md                 # Market, timeframe, constraints, success criteria
-      hypothesis.md            # Alpha thesis and baselines
-      spec.md                  # Entry/exit/risk logic
-      implementation.md        # Mapping from spec to engine implementation
-      reviews/                 # Review logs and decision records
-      experiments/             # Tuning, validation, comparison notes
-      reports/                 # Backtest and performance summaries
-      sessions/                # User-managed discussion / execution records
-      artifacts/               # Strategy-local generated outputs if needed
-  knowledge-base/
-    skills/
-    knowledge/
-```
+## Task → Skill Mapping
 
-## Planning Principles
+Load only the skill(s) that match the current task.
 
-- Keep strategy artifacts grouped by strategy family under `strategies/<strategy_family>/`.
-- Keep engine-specific code under engine folders such as `freqtrade/`, not mixed into strategy notes.
-- Keep reusable Python code in `lib/`, not inside strategy artifact folders.
-- Keep generated outputs separate from hand-written specs and reviews.
-- Prefer adding a new adapter folder under `lib/client/` when integrating a new external service.
-- Keep strategy hypothesis, scope, and design engine-agnostic unless the decision is truly engine-specific.
+| Task type | Primary skill | Secondary skill |
+|-----------|--------------|-----------------|
+| New strategy from scratch | `trade-strategy-scope` | `trade-strategy-hypothesis-baseline` |
+| Strategy hypothesis & baseline | `trade-strategy-hypothesis-baseline` | `trading-domain` |
+| Prototype entry/exit/risk spec | `trade-strategy-prototype-design` | `trade-strategy-scope` |
+| Freqtrade strategy implementation | `trade-strategy-freqtrade-implementation` | `trade-strategy-data-validation` |
+| Running backtest or hyperopt | `trade-strategy-backtest-validation` | `trade-strategy-parameter-tuning` |
+| Analyzing backtest HTML report | `trade-strategy-performance-analysis` | `trade-strategy-improvement-planning` |
+| Planning next iteration | `trade-strategy-improvement-planning` | `trade-strategy-prototype-design` |
+| ML strategy | `ml-trading-strategy` | `ml-workflow` |
+| Fetching or validating market data | `data-pipeline` | `trade-strategy-data-validation` |
+| Multi-agent / LLM task routing | `llm-orchestration` | — |
+| Major strategy decision needing multi-LLM input | `multi-agent-consensus` | `llm-orchestration` |
+| Multi-LLM code / spec review session | `code-review-md-export` | — |
+| Repo structure / file placement | `trade-strategy-development` | — |
+| Strategy markdown artifacts | `strategy-workflow` | — |
+| Deployment checklist | `trade-strategy-deployment-prep` | — |
+| Code review export to markdown | `code-review-md-export` | — |
 
-## Current-State Guidance
+---
 
-- `lib/` remains the shared application/library layer.
-- `freqtrade/` remains the active backtest-engine integration.
-- `data/` stores local fetched or derived datasets.
-- `knowledge-base/` stores reusable skills and supporting documents.
-- New strategy-local markdown records should be organized under `strategies/<strategy_family>/` instead of legacy `com/willy/...` paths.
-- Prefer `freqtrade/configs/base.json` as the shared Freqtrade base config.
-- Prefer `strategies/<strategy_family>/engine/freqtrade/config.json` for strategy-local Freqtrade config.
-- Prefer `data/features/` for feature caches and derived market datasets going forward.
+## Skill Index
 
-## Current Implemented Capabilities
+### Project
+- [Trade Strategy Development](./trade-strategy/trade-strategy-development/SKILL.md) — folder/naming rules
+- [Strategy Workflow](./trade-strategy/strategy-workflow/SKILL.md) — record placement (single source of truth)
+- [LLM Orchestration](./trade-strategy/llm-orchestration/SKILL.md) — agent routing, capability table, fallback chain
+- [Multi-Agent Consensus](./trade-strategy/multi-agent-consensus/SKILL.md) — structured multi-LLM planning decisions
+- [Code Review MD Export](./trade-strategy/code-review-md-export/SKILL.md) — structured multi-LLM review session
+- [Trade Strategy Deployment Prep](./trade-strategy/trade-strategy-deployment-prep/SKILL.md) — Docker dry run & deployment checklist
 
-- `lib/endpoints/send_message.py`
-  CLI entry point for Telegram message sending.
-- `lib/endpoints/call_llm_cli.py`
-  CLI entry point for one-shot LLM calls through `lib/llm_agent/llm_svc.py`.
-- `lib/endpoints/get_crypto_exchange_data.py`
-  CLI entry point for Binance kline retrieval.
-- `lib/endpoints/generate_freqtrade_config.py`
-  CLI entry point for generating strategy-local Freqtrade config from `freqtrade/configs/base.json`.
-- `lib/client/notification/telegram_svc.py`
-  Current notification adapter location.
-- `lib/client/crypto_exchange/binance_svc.py`
-  Current Binance market-data client and feature-cache integration.
-- `freqtrade/analyze_backtest_result.py`
-  Current report analysis script, now aligned with `freqtrade/reports` and `freqtrade/strategies`.
-
-## Migration Approach
-
-- The recommended skeleton may coexist with current live paths during migration.
-- Prefer creating new work in the recommended folders instead of moving active runtime files unless the task explicitly includes migration.
-- Do not break current imports or runtime entry points only to satisfy the target layout.
-- Migrate one concern at a time: strategy docs first, then engine-specific configs, then reusable code placement.
-
-## Load Order
-
-- Read [agent-general-skills.md](../agent-general-skills.md) first for cross-project standards.
-- Then read the project overview skill:
-  [trade-strategy-development/SKILL.md](./trade-strategy/trade-strategy-development/SKILL.md)
-- Then load only the specific project, domain, or framework skill that matches the task.
-
-## Project-Specific Skills
-
-### Project Overview
-
-- [Trade Strategy Development](./trade-strategy/trade-strategy-development/SKILL.md)
-  Repository-level folder, naming, and migration rules.
-
-### Domain Skills
-
+### Domain
 - [Trade Strategy Scope](../domain-skills/trading/trade-strategy-scope/SKILL.md)
-- [Trade Strategy Data Validation](../domain-skills/trading/trade-strategy-data-validation/SKILL.md)
 - [Trade Strategy Hypothesis Baseline](../domain-skills/trading/trade-strategy-hypothesis-baseline/SKILL.md)
 - [Trade Strategy Prototype Design](../domain-skills/trading/trade-strategy-prototype-design/SKILL.md)
+- [Trade Strategy Data Validation](../domain-skills/trading/trade-strategy-data-validation/SKILL.md)
 - [Trade Strategy Improvement Planning](../domain-skills/trading/trade-strategy-improvement-planning/SKILL.md)
-- [ML Workflow](../domain-skills/ml/ml-workflow/SKILL.md)
-- [ML Trading Strategy Development](../domain-skills/ml/ml-trading-strategy/SKILL.md)
 - [Trading Domain](../domain-skills/trading/trading-domain/SKILL.md)
+- [Data Pipeline](../domain-skills/trading/data-pipeline/SKILL.md) — fetch / validate / cache
+- [ML Workflow](../domain-skills/ml/ml-workflow/SKILL.md)
+- [ML Trading Strategy](../domain-skills/ml/ml-trading-strategy/SKILL.md)
 
-### Framework Skills
+### Framework (Freqtrade)
+- [Freqtrade Implementation](../framework-skills/freqtrade/trade-strategy-freqtrade-implementation/SKILL.md)
+- [Backtest Validation](../framework-skills/freqtrade/trade-strategy-backtest-validation/SKILL.md)
+- [Parameter Tuning](../framework-skills/freqtrade/trade-strategy-parameter-tuning/SKILL.md)
+- [Performance Analysis](../framework-skills/freqtrade/trade-strategy-performance-analysis/SKILL.md)
 
-- [Trade Strategy Freqtrade Implementation](../framework-skills/freqtrade/trade-strategy-freqtrade-implementation/SKILL.md)
-- [Trade Strategy Backtest Validation](../framework-skills/freqtrade/trade-strategy-backtest-validation/SKILL.md)
-- [Trade Strategy Parameter Tuning](../framework-skills/freqtrade/trade-strategy-parameter-tuning/SKILL.md)
-- [Trade Strategy Performance Analysis](../framework-skills/freqtrade/trade-strategy-performance-analysis/SKILL.md)
-
-### Supporting Project Skills
-
-- [Strategy Workflow](./trade-strategy/strategy-workflow/SKILL.md)
-  Rules for strategy-local markdown artifacts and review placement.
-- [ML Consensus Review](./trade-strategy/ml-consensus-review/SKILL.md)
-  Multi-agent review workflow tied to this repository's LLM tooling.
-- [Code Review MD Export](./trade-strategy/code-review-md-export/SKILL.md)
-  Markdown review export workflow for strategy-related review logs and specs.
-- [Trade Strategy Deployment Prep](./trade-strategy/trade-strategy-deployment-prep/SKILL.md)
-  Deployment constraints that still depend on this repository's runtime setup.
-
-### Related General Skills
-
+### General
 - [Documentation Workflow](../general-skills/docs/documentation-workflow/SKILL.md)
-  Use when code and markdown need to stay aligned.
 - [Markdown Review](../general-skills/docs/markdown-review/SKILL.md)
-  Use when reviewing or revising markdown quality directly.
-
-## Selection Guidance
-
-- If the task is repository-wide architecture, folder placement, or migration, start with Trade Strategy Development.
-- If the task is strategy hypothesis, spec, or validation logic, start with the matching domain skill.
-- If the task is Freqtrade implementation, backtest, hyperopt, or report analysis, start with the matching framework skill.
-- If the task is about updating markdown review artifacts tied to a strategy, use Code Review MD Export.
