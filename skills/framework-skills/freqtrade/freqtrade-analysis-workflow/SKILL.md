@@ -7,6 +7,21 @@ description: Run, validate, analyze, and tune Freqtrade backtest results in one 
 
 Covers the full post-implementation loop: backtest → validate → analyze → tune.
 
+## Quick Reference
+
+For common operations — stop reading after this section if the task is covered here.
+
+| Operation | Command | Required before running |
+|-----------|---------|------------------------|
+| Check data readiness | `python -m lib.endpoints.check_data_readiness <pair> <timeframe> <timerange>` | Always do this before backtest |
+| Run backtest | `python -m lib.endpoints.freqtrade <family> <StrategyName> <timerange>` | config.json + strategy file exist + data READY |
+| Run analysis | `python -m lib.strategy.analytics.analyze_backtest_result` | backtest stem.json exists |
+| After backtest | Update `STATUS.md` frontmatter: phase → `analysis`, fill `last_backtest_stem` | — |
+| After analysis | Write `sessions/<date>-analysis-summary.md`, update `sessions/_latest.json`, STATUS.md phase → `planning` | — |
+| Hyperopt | `python -m lib.endpoints.freqtrade <family> <StrategyName> <timerange> --mode hyperopt --epochs 200` | Stable baseline (PF > 1.0 OOS) |
+
+---
+
 ## Pre-flight (before starting any phase)
 
 - `strategies/<family>/README.md` is the single source of truth for strategy spec. All work traces back to it.
@@ -21,23 +36,30 @@ python -m lib.endpoints.freqtrade <strategy_family> <StrategyName> <timerange> -
 ```
 
 **Gate — confirm before running:**
+- [ ] `python -m lib.endpoints.check_data_readiness <pair> <timeframe> <timerange>` exits with READY
 - [ ] `strategies/<family>/engine/freqtrade/config.json` is generated (not a template placeholder)
 - [ ] `freqtrade/strategies/<StrategyName>.py` exists with no TODO markers
 - [ ] `python -m lib.endpoints.freqtrade` does not raise an import error
 
 **After running:**
-- Update `STATUS.md`: phase → `analysis`, fill in Last Backtest stem and key metrics.
+- Update `STATUS.md` frontmatter: `phase: analysis`, `last_backtest_stem`, `last_run_metrics`
+- Update `STATUS.md` human-readable section: fill Last Backtest stem and key metrics.
 
 ---
 
 ## Phase 2 — Validate Results
 
-| Check | Threshold | Action if breached |
-|-------|-----------|-------------------|
-| Win Rate > 70% with high trade frequency | Mandatory | Run look-ahead bias check before proceeding |
-| OOS profit < 50% of IS profit | Unstable | Do not proceed to hyperopt; revise strategy logic |
-| Drawdown recovery > 30 days | Unstable | Revise risk controls |
-| Slippage 0.1% makes strategy unprofitable | Fragile | Fix edge quality before proceeding |
+**Mandatory checks (run on every backtest, regardless of metrics):**
+
+- [ ] **Look-ahead bias check** — run `look-ahead-bias-check` skill on the strategy file. Verdict must be CLEAN before proceeding. See: `framework-skills/freqtrade/look-ahead-bias-check/SKILL.md`
+- [ ] **OOS validation gate** — run `oos-validation-gate` skill to enforce hard OOS threshold. Verdict must be PASS or WARN before writing an iteration plan. See: `framework-skills/freqtrade/oos-validation-gate/SKILL.md`
+
+| Threshold check | Action if breached |
+|----------------|-------------------|
+| OOS Profit Factor < 1.0 | BLOCK Planning phase — return to Implementation |
+| OOS/IS ratio < 0.5 | WARN — iteration plan must address overfitting |
+| Drawdown recovery > 30 days | Unstable — revise risk controls |
+| Slippage 0.1% makes strategy unprofitable | Fragile — fix edge quality |
 
 ---
 
@@ -54,6 +76,7 @@ Diagnose in this order:
 
 **Gate — required before next iteration:**
 Write the analysis summary at: `strategies/<family>/sessions/<YYYYMMDD>-analysis-summary.md`
+Update `strategies/<family>/sessions/_latest.json`: set `"analysis_summary"` to the new filename and `"last_updated"` to today.
 
 ```markdown
 # Analysis Summary — <stem> — <YYYY-MM-DD>

@@ -7,12 +7,29 @@ description: Build the next strategy iteration plan from observed weaknesses, fa
 
 Refine trading strategies based on historical audit results.
 
+## Quick Reference
+
+For simple planning tasks — stop reading after this section if covered.
+
+| Step | Action |
+|------|--------|
+| 1. Load context | Read `STATUS.md` frontmatter, then `sessions/_latest.json` to find latest analysis summary |
+| 2. Read summary | Read the file named in `_latest.json["analysis_summary"]` |
+| 3. Check prior art | Read `hypothesis-log.md` — confirm the proposed change was not already tried |
+| 4. Write plan | `sessions/<YYYYMMDD>-iteration-plan.md` |
+| 5. Update pointers | `sessions/_latest.json["iteration_plan"]`, STATUS.md frontmatter: `phase: implementation` |
+| 6. Update hypothesis log | Add new v<N> entry to `hypothesis-log.md` with PENDING verdict |
+
+---
+
 ## Input
 
 Read in this order before planning:
-1. `strategies/<family>/STATUS.md` — current phase, last backtest context
-2. `strategies/<family>/sessions/<latest>-analysis-summary.md` — top failure modes and recommended focus
-3. `strategies/<family>/README.md` — current hypothesis and spec (update this if the hypothesis changes)
+1. `strategies/<family>/STATUS.md` — read YAML frontmatter first for current phase and last stem
+2. `strategies/<family>/sessions/_latest.json` — resolve the filename of the latest analysis summary
+3. `strategies/<family>/sessions/<latest>-analysis-summary.md` — top failure modes and recommended focus
+4. `strategies/<family>/hypothesis-log.md` — prior art check before proposing any change
+5. `strategies/<family>/README.md` — current hypothesis and spec (update this if the hypothesis changes)
 
 Do not re-read the full analysis zip or HTML report unless the summary is missing.
 
@@ -40,6 +57,11 @@ Write to: `strategies/<family>/sessions/<YYYYMMDD>-iteration-plan.md`
 ## Source
 - Based on: strategies/<family>/sessions/<date>-analysis-summary.md
 
+## Prior Art Check
+- Has this change been tried before? (check hypothesis-log.md)
+  - If yes: cite version and outcome. Explain why re-testing is justified.
+  - If no: state "No prior art found in hypothesis-log.md"
+
 ## Observed Weakness
 <具體 regime 或 metric，例：Sideways market 造成 -12% profit drag>
 
@@ -64,4 +86,7 @@ Write to: `strategies/<family>/sessions/<YYYYMMDD>-iteration-plan.md`
 - OOS timerange: <YYYYMMDD-YYYYMMDD>
 ```
 
-After writing the plan, update `STATUS.md`: phase → `implementation`.
+After writing the plan:
+1. Update `STATUS.md` frontmatter: `phase: implementation`, `next_action`, `last_updated`
+2. Update `sessions/_latest.json`: set `"iteration_plan"` to the new filename
+3. Add a new entry to `hypothesis-log.md` with verdict PENDING

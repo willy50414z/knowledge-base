@@ -40,9 +40,21 @@ Action: [Edit lib/strategy/execution/freqtrade_executor.py line 24]
 Observation: Edit applied. STRATEGY_PATH now resolves from REPO_ROOT dynamically.
 ```
 
+## Context Loading Protocol
+
+Before loading skill files or strategy documents, apply the **artifact triage** ladder to minimize cold-start token cost:
+
+1. Read `strategies/<family>/_context_digest.md` first — if fresh, skip to action.
+2. If no digest or it is stale: read only `STATUS.md` YAML frontmatter + `sessions/_latest.json`.
+3. Load only the SKILL.md sections needed for the current task (Quick Reference first).
+4. Escalate to full README.md or full skill content only when required.
+
+See: `knowledge-base/skills/project-skills/trade-strategy/artifact-triage/SKILL.md`
+
 ## Usage
 
 - If a task involves text files, load and follow the linked file encoding standard first.
 - Apply TAO for all non-trivial tasks (more than one file change or any reasoning required).
+- Apply the context loading protocol above before reading large markdown files.
 - Add new cross-agent rules here as more shared standards are created.
 - Keep this file short; store full rules in linked documents.
