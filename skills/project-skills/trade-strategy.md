@@ -25,10 +25,49 @@ Key config paths:
 - Shared Freqtrade base config: `freqtrade/configs/base.json`
 - Strategy-local Freqtrade config: `strategies/<family>/engine/freqtrade/config.json`
 - Strategy status file: `strategies/<family>/STATUS.md`
-- Feature data: `data/features/<EXCHANGE>/<MARKET_TYPE>/`
 
 For record placement rules (reports/, experiments/, sessions/, reviews/), see:
 → `knowledge-base/skills/project-skills/trade-strategy/strategy-workflow/SKILL.md`
+
+---
+
+## Data Paths (Single Source of Truth)
+
+This project has **two separate data layers**. Always use the correct one for the task.
+
+| Layer | Path | Format | Used by |
+|-------|------|--------|---------|
+| **Freqtrade backtest data** | `freqtrade/user_data/data/binance/` | Freqtrade Feather (`<PAIR>-<TF>-futures.feather`) | Freqtrade backtesting engine |
+| **FeatureStore (custom analysis)** | `data/features/<EXCHANGE>/<MARKET_TYPE>/` | Feather (`<PRODUCT>_<TF>.feature`) | `analyze_backtest_result.py`, ML, BinanceService |
+
+### Freqtrade Backtest Data
+
+```
+freqtrade/user_data/data/binance/futures/
+  BTC_USDT_USDT-15m-futures.feather        ← 15m OHLCV (execution timeframe)
+  BTC_USDT_USDT-1h-futures.feather         ← 1h OHLCV (informative pair / HTF trend)
+  BTC_USDT_USDT-1h-funding_rate.feather    ← supplementary (not used by strategy code)
+  BTC_USDT_USDT-1h-mark.feather            ← supplementary (not used by strategy code)
+```
+
+Managed by: `freqtrade download-data` via `lib/endpoints/freqtrade.py --mode download-data`
+
+**Critical**: Files must be in `binance/futures/` subdirectory — NOT directly in `binance/`. Freqtrade looks for futures data in the `futures/` subfolder.
+
+**Important**: Download must include ALL timeframes used by the strategy, including informative pairs (e.g. if strategy uses 1h HTF, download both `15m` and `1h`).
+
+### FeatureStore (Custom Analysis)
+
+```
+data/features/BINANCE/FUTURE/BTCUSDT_1h.feature
+data/features/BINANCE/SPOT/ETHUSDT_15m.feature
+```
+
+Managed by: `BinanceService` via `lib/endpoints/get_crypto_exchange_data.py`
+
+### check_data_readiness scope
+
+`lib/endpoints/check_data_readiness.py` currently checks the **FeatureStore** layer, not the Freqtrade backtest data layer. For Freqtrade backtest preflight, verify the file exists in `freqtrade/user_data/data/binance/` directly.
 
 ---
 
@@ -45,7 +84,21 @@ This protocol prevents loading skills that are invalid for the current phase and
 
 ---
 
+## Unstructured Idea Routing (B3)
+
+If the user input is an unstructured idea (e.g., "I want to try RSI divergence entry"), route to `strategy-bootstrap` first — do not jump directly to implementation.
+
+```
+Unstructured idea → strategy-bootstrap → trade-strategy-scope → trade-strategy-hypothesis-baseline → ...
+```
+
+Trigger this path when: user describes a signal, pattern, or concept without referencing an existing strategy family or scope document.
+
+---
+
 ## Phase-Gated Skill Routing
+
+> This table is a quick reference. For full orchestration logic, use `strategy-cycle-orchestrator`.
 
 Read `STATUS.md` phase first. Then load only skills valid for that phase.
 
@@ -75,11 +128,15 @@ Load only the skill(s) that match the current task.
 | Planning next iteration | `trade-strategy-improvement-planning` | `trade-strategy-prototype-design` |
 | ML strategy | `ml-trading-strategy` | `ml-workflow` |
 | Fetching or validating market data | `data-pipeline` | `trade-strategy-data-validation` |
+| Fetching data for Freqtrade backtesting | `freqtrade-download-data` | `data-readiness-check` |
+| Run all pre-backtest gates (data + bias + config) | `backtest-preflight` | ??|
+
 | Check data before backtest | `data-readiness-check` | — |
 | Inspect strategy code for look-ahead bias | `look-ahead-bias-check` | — |
 | Validate OOS results before Planning phase | `oos-validation-gate` | — |
 | Validate regime filter calibration | `regime-filter-validation` | — |
 | Determine what to do next (any phase) | `strategy-cycle-orchestrator` | — |
+| End a session (update digest + STATUS.md + session record) | `session-close` | — |
 | Compare two experiment results | `experiment-compare` | — |
 | Score backtest results against objective thresholds | `strategy-performance-evaluation` | `oos-validation-gate` |
 | Extract lessons after iteration | `knowledge-extraction` | — |
@@ -99,6 +156,7 @@ Load only the skill(s) that match the current task.
 - [Trade Strategy Development](./trade-strategy/trade-strategy-development/SKILL.md) — folder/naming rules
 - [Strategy Workflow](./trade-strategy/strategy-workflow/SKILL.md) — record placement, phase gates (single source of truth)
 - [Strategy Cycle Orchestrator](./trade-strategy/strategy-cycle-orchestrator/SKILL.md) — determine current phase and next action; use when unclear what to do next
+- [Session Close](./trade-strategy/session-close/SKILL.md) — mandatory end-of-session cleanup: update STATUS.md, session record, _latest.json, _context_digest.md
 - [Strategy Bootstrap](./trade-strategy/strategy-bootstrap/SKILL.md) — initialize new strategy family workspace from a raw idea
 - [Artifact Triage](./trade-strategy/artifact-triage/SKILL.md) — load minimal context before escalating to large files; reduces cold-start token cost
 - [Experiment Compare](./trade-strategy/experiment-compare/SKILL.md) — compare two backtest stems and emit KEEP/REVERT verdict
@@ -108,10 +166,13 @@ Load only the skill(s) that match the current task.
 - [Code Review MD Export](./trade-strategy/code-review-md-export/SKILL.md) — structured multi-LLM review session
 - [Trade Strategy Deployment Prep](./trade-strategy/trade-strategy-deployment-prep/SKILL.md) — Docker dry run & deployment checklist
 
-### Framework (Freqtrade — quality gates)
-- [Data Readiness Check](../framework-skills/freqtrade/data-readiness-check/SKILL.md) — verify feature data exists and covers a requested timerange before backtest
-- [Look-Ahead Bias Check](../framework-skills/freqtrade/look-ahead-bias-check/SKILL.md) — mandatory structural inspection of strategy code for look-ahead bias patterns
-- [OOS Validation Gate](../framework-skills/freqtrade/oos-validation-gate/SKILL.md) — hard gate: OOS PF must be ≥ 1.0 before Planning phase is allowed
+### Framework (Freqtrade ??quality gates)
+- [Backtest Preflight](../framework-skills/freqtrade/backtest-preflight/SKILL.md) ??composite gate: data readiness + look-ahead bias + config completeness in one checklist; use before every backtest
+- [Data Readiness Check](../framework-skills/freqtrade/data-readiness-check/SKILL.md) ??verify feature data exists and covers a requested timerange before backtest
+- [Freqtrade Download Data](../framework-skills/freqtrade/download-data/SKILL.md) ??fetch market data for Freqtrade backtesting
+- [Look-Ahead Bias Check](../framework-skills/freqtrade/look-ahead-bias-check/SKILL.md) ??mandatory structural inspection of strategy code for look-ahead bias patterns
+- [OOS Validation Gate](../framework-skills/freqtrade/oos-validation-gate/SKILL.md) ??hard gate: OOS PF must be ??1.0 before Planning phase is allowed
+
 
 ### Domain
 - [Trade Strategy Scope](../domain-skills/trading/trade-strategy-scope/SKILL.md)
@@ -122,7 +183,7 @@ Load only the skill(s) that match the current task.
 - [Trading Domain](../domain-skills/trading/trading-domain/SKILL.md)
 - [Data Pipeline](../domain-skills/trading/data-pipeline/SKILL.md) — fetch / validate / cache
 - [Regime Filter Validation](../domain-skills/trading/regime-filter-validation/SKILL.md) — validate regime filter calibration after backtest
-- [Strategy Performance Evaluation](../domain-skills/trading/strategy-performance-evaluation/SKILL.md) — score backtest results against numeric thresholds; covers PF, Sharpe, drawdown, overfitting, regime coverage, and crypto-specific adjustments
+- [Strategy Performance Evaluation](../domain-skills/trading/strategy-performance-evaluation/SKILL.md) — authoritative launch gate for strategy go-live decisions; covers profile-based thresholds, 8 core metrics, statistical significance, IS/OOS degradation, regime coverage, red-line eliminations, and crypto-specific adjustments
 
 ### ML
 - [ML Workflow](../domain-skills/ml/ml-workflow/SKILL.md)

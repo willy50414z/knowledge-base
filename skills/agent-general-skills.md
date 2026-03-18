@@ -44,10 +44,10 @@ Observation: Edit applied. STRATEGY_PATH now resolves from REPO_ROOT dynamically
 
 Before loading skill files or strategy documents, apply the **artifact triage** ladder to minimize cold-start token cost:
 
-1. Read `strategies/<family>/_context_digest.md` first — if fresh, skip to action.
+1. Read `strategies/<family>/_context_digest.md` first — if fresh and contains `primary_skill`, go directly to the relevant SKILL.md and skip to action.
 2. If no digest or it is stale: read only `STATUS.md` YAML frontmatter + `sessions/_latest.json`.
-3. Load only the SKILL.md sections needed for the current task (Quick Reference first).
-4. Escalate to full README.md or full skill content only when required.
+3. Load the relevant `SKILL.md` for the current phase. Skills are well-structured with tables and checklists — stop reading once the task is covered.
+4. Escalate to full README.md only when implementation spec is required.
 
 See: `knowledge-base/skills/project-skills/trade-strategy/artifact-triage/SKILL.md`
 

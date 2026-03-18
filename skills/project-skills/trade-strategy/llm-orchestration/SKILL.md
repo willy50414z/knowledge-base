@@ -5,6 +5,18 @@ description: Route tasks to the appropriate AI agent or LLM based on task type. 
 
 # LLM Orchestration Skill
 
+## Task Complexity → Model Suggestion
+
+Even without an active semantic router, use this table to guide model selection:
+
+| Task complexity | Suggested model class | Example tasks |
+|----------------|----------------------|---------------|
+| Simple formatting / lookup / status check | haiku-class | Read STATUS.md, format a table, answer a factual question |
+| Code generation / analysis / skill updates | sonnet-class | Write a strategy method, update a SKILL.md, analyze backtest output |
+| Architecture decision / major hypothesis | opus-class or multi-agent-consensus | Redesign entry logic, evaluate regime filter approach |
+
+---
+
 ## Agent Capability Table
 
 Each agent has distinct strengths. Route tasks accordingly.

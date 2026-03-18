@@ -62,15 +62,26 @@ Skill to load: data-readiness-check
 ```
 
 ```
-Phase: analysis
+Phase: backtest
 Gate status: PASS
-Next action: python -m lib.strategy.analytics.analyze_backtest_result
-Skill to load: freqtrade-analysis-workflow (Phase 3)
+Next action: python -m lib.endpoints.run_backtest_suite <family> <StrategyName> --is-timerange YYYYMMDD-YYYYMMDD --oos-timerange YYYYMMDD-YYYYMMDD --commit
+Skill to load: (none — run_backtest_suite chains the full pipeline automatically)
 ```
 
-### Step 4 — Update context digest
+```
+Phase: analysis
+Gate status: PASS
+Next action: python -m lib.strategy.analytics.analyze_backtest_result --stem <stem> [--strategy-family <family>]
+Skill to load: backtest-analysis-review
+```
 
-After completing the action, update `strategies/<family>/_context_digest.md`:
+### Step 4 — Close session and update context digest
+
+After completing the action, run the `session-close` skill to update all state artifacts.
+
+See: `knowledge-base/skills/project-skills/trade-strategy/session-close/SKILL.md`
+
+The session-close skill writes `strategies/<family>/_context_digest.md` in this format:
 
 ```markdown
 # Context Digest — <strategy_family>
@@ -90,8 +101,12 @@ Last updated: <YYYY-MM-DD>
 <one sentence>
 
 ## Active Skill
-<skill name valid for current phase>
+- primary_skill: <skill-name>
+- skill_section: "<Phase N — Section Name>"
 ```
+
+The `primary_skill` and `skill_section` fields enable cold-start shortcut:
+`CLAUDE.md → _context_digest.md → SKILL.md` (skips routing table lookup).
 
 ---
 

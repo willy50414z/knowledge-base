@@ -7,6 +7,20 @@ description: Build the next strategy iteration plan from observed weaknesses, fa
 
 Refine trading strategies based on historical audit results.
 
+## MANDATORY PREREQUISITES
+
+Before running improvement planning, confirm all of the following:
+
+1. **`experiment-compare`** must be run first if this is the second iteration or later.
+2. **`knowledge-extraction`** must be run if `experiment-compare` verdict is KEEP.
+3. **`sessions/<date>-analysis-summary.md`** must already exist.
+
+If any prerequisite is missing, run that step first and return here.
+
+> Skipped/N/A with justification: first iteration has no prior experiment to compare. State "First iteration — no experiment-compare required" in the iteration plan.
+
+---
+
 ## Quick Reference
 
 For simple planning tasks — stop reading after this section if covered.
@@ -18,7 +32,7 @@ For simple planning tasks — stop reading after this section if covered.
 | 3. Check prior art | Read `hypothesis-log.md` — confirm the proposed change was not already tried |
 | 4. Write plan | `sessions/<YYYYMMDD>-iteration-plan.md` |
 | 5. Update pointers | `sessions/_latest.json["iteration_plan"]`, STATUS.md frontmatter: `phase: implementation` |
-| 6. Update hypothesis log | Add new v<N> entry to `hypothesis-log.md` with PENDING verdict |
+| 6. Update hypothesis log | Add new v<N> entry to `hypothesis-log.md` with PENDING verdict; refresh Quick Summary at top |
 
 ---
 
@@ -28,7 +42,7 @@ Read in this order before planning:
 1. `strategies/<family>/STATUS.md` — read YAML frontmatter first for current phase and last stem
 2. `strategies/<family>/sessions/_latest.json` — resolve the filename of the latest analysis summary
 3. `strategies/<family>/sessions/<latest>-analysis-summary.md` — top failure modes and recommended focus
-4. `strategies/<family>/hypothesis-log.md` — prior art check before proposing any change
+4. `strategies/<family>/hypothesis-log.md` — read the **Quick Summary section at the top** first (3–5 lines: anchor, last tested, open questions). If no summary exists, read the full file and add one after planning.
 5. `strategies/<family>/README.md` — current hypothesis and spec (update this if the hypothesis changes)
 
 Do not re-read the full analysis zip or HTML report unless the summary is missing.
@@ -90,3 +104,12 @@ After writing the plan:
 1. Update `STATUS.md` frontmatter: `phase: implementation`, `next_action`, `last_updated`
 2. Update `sessions/_latest.json`: set `"iteration_plan"` to the new filename
 3. Add a new entry to `hypothesis-log.md` with verdict PENDING
+4. Refresh the **Quick Summary** at the top of `hypothesis-log.md`:
+
+```markdown
+## Quick Summary (prior art index)
+- Anchor: <version> (<metric, e.g. OOS PF 1.42>)
+- Last tested: <version> (<verdict: KEEP/REVERT>, <key metric>)
+- Pending: <current version> (<one-line change description>)
+- Open question: <untested hypothesis worth exploring next>
+```

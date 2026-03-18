@@ -1,9 +1,13 @@
 ---
 name: data-pipeline
-description: Fetch, validate, and cache market data from Binance. Use when preparing data for backtesting, feature engineering, or strategy research — covers when to refetch, how to validate completeness, and how the feature cache works.
+description: Fetch, validate, and cache market data via BinanceService into the FeatureStore. Use for ML feature engineering and custom analysis — NOT for Freqtrade backtest data (use download-data skill for that).
 ---
 
 # Data Pipeline Skill
+
+> **Scope**: This skill covers the **FeatureStore** pipeline (`data/features/`) used by custom analysis scripts and ML pipelines.
+> For Freqtrade backtest data, use the `download-data` skill instead (`freqtrade/user_data/data/binance/`).
+> See `knowledge-base/skills/project-skills/trade-strategy.md` → Data Paths for the full path reference.
 
 Covers the full lifecycle: fetch → validate → cache → use.
 

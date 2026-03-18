@@ -1,579 +1,520 @@
 ---
 name: strategy-performance-evaluation
-description: Professional-grade evaluation framework for crypto perpetual futures backtests (Freqtrade / Binance Futures). Produces a deterministic REJECT/BORDERLINE/PROMISING tier verdict and a KEEP/REVERT/NEED MORE DATA decision from raw backtest metrics. Use when an agent must score a strategy after a backtest or OOS run, or when deciding whether to promote or discard a strategy iteration.
+description: Launch-gate evaluation framework for trading strategies. Use when an agent must decide whether a strategy is deployable, borderline, or reject based on profile-specific thresholds, statistical significance, OOS degradation, regime coverage, and crypto-specific risk adjustments.
 ---
 
-# Strategy Performance Evaluation Framework
+# Strategy Performance Evaluation
 
-Applies objective, numeric standards to crypto perpetual futures backtest results (Freqtrade engine, Binance Futures). Every threshold is a specific number — not a range or qualitative descriptor. When the user or a calling skill refers to a KEEP/REVERT decision, this is the authoritative source for that decision logic.
+This skill is the authoritative launch gate for deciding whether a trading strategy can go live.
 
----
+Use this skill when:
+- scoring a backtest or OOS result after an iteration
+- deciding KEEP / NEED MORE DATA / REVERT
+- deciding whether a strategy is allowed to enter deployment preparation
+- writing the performance section of `analysis-summary.md`
 
-## Quick Reference — 3-Tier Verdict Table
-
-Evaluate top-down. Assign the first tier whose conditions are satisfied. Do not skip tiers.
-
-| Tier | Agent action | Condition logic |
-|------|-------------|-----------------|
-| **REJECT** | REVERT — return to implementation | Any single REJECT trigger (R-codes) fires |
-| **BORDERLINE** | NEED MORE DATA — fix listed items and re-backtest | No REJECT triggers; any single BORDERLINE trigger (B-codes) fires |
-| **PROMISING** | KEEP — proceed to planning phase | All PROMISING floors met; zero REJECT or BORDERLINE triggers |
+The evaluation must always be profile-based. Do not apply a single universal threshold to all strategies.
 
 ---
 
-## Section 1 — REJECT Triggers
+## Section 1 - Launch Gate Workflow
 
-Any one of the following fires → Tier = REJECT. Record the trigger code in the verdict output.
+Evaluate in this order. Stop only when the rule says to stop.
 
-| Code | Condition | Notes |
-|------|-----------|-------|
-| R1 | OOS Profit Factor < 1.0 | Strategy loses money on unseen data |
-| R2 | IS Profit Factor < 1.1 | No detectable edge even in-sample |
-| R3 | Max Drawdown > 40% | Capital-destruction risk |
-| R4 | Sharpe Ratio (annualised) < 0.5 | Return per unit of risk is sub-institutional |
-| R5 | Total IS trades < 100 | Statistical basis does not exist |
-| R6 | Strategy unprofitable after 0.1% slippage per side | Edge does not survive minimum production cost |
-| R7 | Look-ahead bias detected (structural) | Result is invalid — not a performance question |
-| R8 | Win Rate < 35% AND Profit Factor < 1.3 simultaneously | Thin edge combined with poor hit rate — not survivable live |
-| R9 | IS PF > 5.0 with fewer than 300 IS trades | Near-certain curve fit; block regardless of OOS appearance |
-| R10 | Win Rate > 80% | Almost always exit logic reading same-candle close (look-ahead) |
-| R11 | Top 1 trade accounts for > 20% of total profit | Single-event dependency, not a systematic edge |
-| R12 | OOS period < 60 calendar days | Too short to cover even one market sub-phase |
-| R13 | Backtest uses 0% slippage AND 0% fees | Results are not production-representative; re-run required |
+1. Identify the strategy profile:
+   - Profile A: High Frequency / Statistical Arbitrage
+   - Profile B: Trend Following
+   - Profile C: Mean Reversion
+2. Check statistical significance gate.
+3. Check automatic elimination red lines.
+4. Apply IS/OOS degradation grading.
+5. Score the 8 core metrics against the selected profile.
+6. Check four-regime market coverage.
+7. Apply crypto-specific adjustments.
+8. Emit both:
+   - Tier verdict: `REJECT | BORDERLINE | PROMISING`
+   - Launch verdict: `BLOCK | CONDITIONAL | GO-LIVE-READY`
 
----
-
-## Section 2 — BORDERLINE Triggers
-
-No REJECT present and any one fires → Tier = BORDERLINE. List ALL triggered codes in verdict; each has a required fix.
-
-| Code | Condition | Required fix |
-|------|-----------|-------------|
-| B1 | OOS trade count < 30 | Extend backtest period before re-evaluating |
-| B2 | OOS/IS Profit Factor ratio < 0.5 | Reduce parameter count; rerun hyperopt with fewer free parameters |
-| B3 | Max Drawdown 25–40% | Improve position sizing or add drawdown guard; re-backtest |
-| B4 | IS Profit Factor 1.1–1.3 | Signal quality is thin; investigate entry signal before tuning |
-| B5 | Sharpe (annualised) 0.5–0.8 | Risk-adjusted return is marginal; not yet deployable |
-| B6 | Equity curve R² < 0.85 | Non-linear growth pattern detected; see Section 6 |
-| B7 | Total backtest period < 18 months | Extend data coverage; single regime is insufficient |
-| B8 | Longest drawdown duration > 60 calendar days | Recovery too slow for any reasonable capital allocation |
-| B9 | > 60% of profit from one calendar quarter | Regime concentration; extend or decompose by regime |
-| B10 | OOS/IS ratio 0.5–0.7 | Moderate degradation; iteration plan must address overfitting |
-| B11 | Parameter at or near search-space boundary | Optimizer hit a wall; re-run with extended search space |
-| B12 | Losing in exactly one regime without documented exclusion | Add regime filter or document the exclusion in strategy spec |
-| B13 | Weekend Sharpe < weekday Sharpe by > 30% | Strategy has weekend liquidity sensitivity; validate or restrict hours |
-| B14 | Top 5% of trades account for > 50% of total profit | Profit concentrated in outlier events; not a repeatable edge |
-| B15 | Best single calendar month removed drops PF below 1.0 | Edge depends on one period; not durable |
+Decision mapping:
+- `REJECT` -> `REVERT`
+- `BORDERLINE` -> `NEED MORE DATA`
+- `PROMISING` but launch gate not fully passed -> `KEEP`, but not deployable yet
+- `PROMISING` and launch gate fully passed -> `KEEP` and eligible for deployment prep
 
 ---
 
-## Section 3 — PROMISING Floors
+## Section 2 - Strategy Profiles
 
-ALL conditions must hold simultaneously. Any failure triggers BORDERLINE or REJECT as appropriate.
+Choose exactly one primary profile before evaluating.
 
-| Metric | Minimum floor | Strong signal |
-|--------|--------------|---------------|
-| IS Profit Factor | ≥ 1.4 | ≥ 1.8 |
-| OOS Profit Factor | ≥ 1.1 | ≥ 1.4 |
-| OOS/IS PF ratio | ≥ 0.5 | ≥ 0.7 |
-| Sharpe Ratio (annualised, OOS) | ≥ 0.8 | ≥ 1.5 |
-| Sortino Ratio (annualised, OOS) | ≥ 1.0 | ≥ 2.0 |
-| Calmar Ratio (OOS) | ≥ 0.5 | ≥ 1.0 |
-| Max Drawdown | ≤ 25% | ≤ 15% |
-| Win Rate | ≥ 40% | ≥ 52% |
-| Total IS trades | ≥ 150 | ≥ 300 |
-| OOS trade count | ≥ 30 | ≥ 60 |
-| Total backtest period | ≥ 18 months | ≥ 30 months |
-| Equity curve R² | ≥ 0.85 | ≥ 0.93 |
-| Regime coverage | 3 of 4 regimes profitable | 4 of 4 profitable |
+### 2.1 Profile A - High Frequency / Statistical Arbitrage
 
----
+Objective: maximize stability, minimize risk, and survive costs.
 
-## Section 4 — Primary Metrics Detail
+Required launch characteristics:
+- very smooth upward equity curve
+- highly stable edge after fees and slippage
+- strict single-trade loss control
 
-### 4.1 Profit Factor
+Hard profile requirements:
+- Sharpe > 2.0
+- Max Drawdown < 5%
+- Win Rate > 55%
+- Single-trade max loss <= 1% of total capital
 
-Gross profit divided by gross loss. Primary gating metric. Evaluate IS and OOS separately.
+### 2.2 Profile B - Trend Following
 
-| Level | IS | OOS |
-|-------|----|-----|
-| REJECT | < 1.1 | < 1.0 |
-| BORDERLINE | 1.1–1.3 | 1.0–1.1 |
-| Minimum viable (PROMISING floor) | 1.4 | 1.1 |
-| Strong signal | ≥ 1.8 | ≥ 1.4 |
-| Suspiciously high — flag overfitting | > 5.0 (< 300 trades) | > 2.5 with OOS < 1.3 |
+Objective: tolerate low win rate, rely on large winners, and preserve convex payoff.
 
-A PF above 3.0 in IS with fewer than 200 trades is near-certain curve fit. Flag R9 regardless of OOS appearance.
+Hard profile requirements:
+- Sharpe > 1.0
+- Profit/Loss Ratio > 2.5
+- Win Rate between 35% and 45%
+- Max Drawdown < 20%
 
-### 4.2 Sharpe Ratio (annualised)
+Interpretation:
+- frequent stop-outs are normal
+- low win rate alone is not a problem
+- P/L ratio is the core survival metric
 
-Annualise using 365-day base (crypto trades 24/7). Freqtrade uses 365 by default — confirm before comparing to external benchmarks using 252.
+### 2.3 Profile C - Mean Reversion
 
-| Level | OOS threshold |
-|-------|---------------|
-| REJECT | < 0.5 |
-| BORDERLINE | 0.5–0.8 |
-| Minimum viable | 0.8 |
-| Strong | ≥ 1.5 |
-| Suspiciously high | > 3.0 on < 200 OOS trades |
+Objective: monetize range-bound markets while controlling crash risk.
 
-A crypto Sharpe of 0.9 is roughly equivalent to an equity Sharpe of 1.2 given the 3–5x volatility differential. Do not compare directly to equity benchmarks.
+Hard profile requirements:
+- Sharpe > 1.5
+- Win Rate > 60%
+- Profit/Loss Ratio between 0.8 and 1.2
 
-### 4.3 Sortino Ratio (annualised)
+Mandatory protection:
+- must include a hard time-based exit, or
+- must include a market-volatility protection mechanism such as VIX / volatility regime guard
 
-Penalises downside deviation only. Preferred primary risk metric for momentum and breakout strategies with asymmetric return distributions.
-
-| Level | OOS threshold |
-|-------|---------------|
-| REJECT (implicit via Sharpe gate) | — |
-| Minimum viable | ≥ 1.0 |
-| Strong | ≥ 2.0 |
-
-Sortino should always exceed Sharpe by at least 10%. If Sortino < Sharpe, the strategy has more upside than downside volatility — verify trade-level P&L distribution for data integrity issues.
-
-### 4.4 Calmar Ratio
-
-Annualised return divided by max drawdown. Measures return per unit of drawdown risk.
-
-| Level | OOS threshold |
-|-------|---------------|
-| Minimum viable | ≥ 0.5 |
-| Strong | ≥ 1.0 |
-
-Crypto Calmar of 0.5 is approximately equivalent to equities Calmar of 1.0 given vol differential.
-
-### 4.5 Max Drawdown
-
-Peak-to-trough equity decline as reported by Freqtrade (closed-trade equity basis).
-
-| Level | Threshold |
-|-------|-----------|
-| REJECT | > 40% |
-| BORDERLINE | 25–40% |
-| Minimum viable | ≤ 25% |
-| Strong | ≤ 15% |
-
-Apply a 1.5x live stress multiplier for deployment sizing: a 20% OOS drawdown should be budgeted as 30% in live. Also check **drawdown duration**: max acceptable time from peak to full recovery is 60 calendar days. Flag B8 if exceeded.
-
-### 4.6 Win Rate
-
-Evaluate in context of average Risk:Reward ratio. Win rate alone is not a gating condition.
-
-| Avg R:R | Minimum Win Rate | Promising |
-|---------|-----------------|-----------|
-| 0.5:1 | 70% | > 75% |
-| 1.0:1 | 40% | > 50% |
-| 1.5:1 | 35% | > 45% |
-| 2.0:1 | 30% | > 40% |
-| 3.0:1 | 25% | > 35% |
-
-A win rate below 30% is flagged for any R:R — losing streaks become psychologically unsurvivable and execution variance has outsized impact. Apply R8 when WR < 35% AND PF < 1.3 simultaneously.
-
-### 4.7 Average Risk:Reward Ratio
-
-Average win size divided by average loss size per trade.
-
-| Level | Threshold |
-|-------|-----------|
-| REJECT-adjacent | < 0.5 |
-| Marginal | 0.5–0.8 |
-| Acceptable | 0.8–1.2 |
-| Promising | 1.2–2.0 |
-| Strong | > 2.0 |
-
-An R:R above 3.0 with Win Rate above 55% at > 200 trades is statistically implausible — flag as potential look-ahead bias.
-
-### 4.8 Recovery Factor
-
-Total net profit divided by max drawdown (same units). Measures how many times the strategy earns back its worst loss.
-
-| Level | OOS threshold |
-|-------|---------------|
-| Minimum viable | ≥ 1.0 |
-| Promising | ≥ 2.0 |
-| Strong | > 4.0 |
+If neither protection exists, the strategy is `REJECT` regardless of headline metrics.
 
 ---
 
-## Section 5 — Risk-Adjusted vs Absolute Return Priority
+## Section 3 - Statistical Significance Gate
 
-In crypto, raw return % is not a reliable evaluation signal because bull markets inflate returns independent of edge, leverage amplifies noise as much as signal, and drawdowns can be catastrophic with aggressive sizing.
+These are minimum evidence requirements before any launch discussion.
 
-**Priority order for all gating decisions:**
+### 3.1 Minimum sample size
 
-1. OOS Profit Factor — primary gate (R1). Measures edge persistence on unseen data.
-2. Sortino Ratio — primary risk-adjusted metric. Penalises downside volatility specifically.
-3. Max Drawdown — capital preservation hard ceiling.
-4. Sharpe Ratio — secondary risk-adjusted metric. Tiebreaker between similar candidates.
-5. Calmar Ratio — supplementary context for deployment sizing.
-6. Total Return % — informational only. Never used as a gating condition.
-7. CAGR — informational only. Useful for sizing context but not pass/fail.
+| Gate | Requirement |
+|------|-------------|
+| IS sample | >= 100 trades |
+| OOS sample | >= 30 trades |
 
-Do not optimise hyperopt for Total Profit or CAGR. Use Sortino or Sharpe as the hyperopt objective (see `freqtrade-analysis-workflow` skill).
+If either fails:
+- Tier verdict cannot exceed `BORDERLINE`
+- Launch verdict is `BLOCK`
 
----
+### 3.2 Profit Factor confidence adjustment
 
-## Section 6 — OOS Validation Standards
+Near-threshold PF values must be adjusted downward by trade-count confidence penalty.
 
-### 6.1 IS/OOS Split Requirements
+| Trade count | PF confidence penalty |
+|-------------|------------------------|
+| 30-49 | 0.30 |
+| 50-99 | 0.20 |
+| 100-199 | 0.10 |
+| >= 200 | 0.05 |
 
-| Parameter | Standard | Notes |
-|-----------|---------|-------|
-| Minimum IS period | 12 months | Must include at least one Bull and one Bear quarter |
-| Minimum OOS period | 6 months | Must be strictly later in time than IS (walk-forward) |
-| OOS as % of total period | 25–33% | Random splits are invalid for time-series strategies |
-| OOS must be defined | Before any hyperopt run | Post-hoc OOS designation is treated as IS |
+Use:
 
-### 6.2 Acceptable IS-to-OOS Degradation
+```text
+PF_adjusted = PF_reported - confidence_penalty
+```
 
-| OOS/IS PF ratio | Verdict |
-|----------------|---------|
-| > 0.90 | Excellent generalisation — proceed |
-| 0.70–0.90 | Acceptable degradation — proceed |
-| 0.50–0.70 | BORDERLINE (B10) — iteration plan must explicitly address overfitting |
-| 0.30–0.50 | BORDERLINE (B2) — reduce parameter count before next run |
-| < 0.30 | REJECT — rebuild signal logic |
+Launch and tier decisions must use `PF_adjusted`, not raw PF, whenever PF is close to a threshold.
 
-Apply the same ratio to Sharpe: OOS Sharpe / IS Sharpe must be > 0.4. Below 0.4 is a second independent overfitting signal (flag B2 if present).
-
-### 6.3 Minimum OOS Trade Count and Confidence
-
-| OOS trade count | Confidence | Action |
-|-----------------|-----------|--------|
-| > 200 | PF reliable to ± 0.05 | Full confidence |
-| 100–200 | PF reliable to ± 0.1 | Full confidence |
-| 50–100 | PF reliable to ± 0.2 | Acceptable |
-| 30–49 | PF reliable to ± 0.3 | Acceptable; note limited confidence |
-| < 30 | PF unreliable | BORDERLINE B1 — extend period |
-
-When evaluating results near the PROMISING floor, use the lower bound of the confidence interval: a PF of 1.2 with 35 OOS trades should be treated as PF 0.9 (1.2 − 0.3).
-
-### 6.4 Walk-Forward Validation (Recommended After Hyperopt)
-
-If the strategy has been hyperopt-tuned, run a rolling walk-forward: 12-month IS window, 3-month OOS step, minimum 4 folds. Accept only if ≥ 3 of 4 folds show OOS PF ≥ 1.0. Fewer than 3 profitable folds → flag B2.
-
-### 6.5 Secondary Overfitting Signals
-
-Flag all of the following as independent overfitting indicators regardless of OOS/IS ratio:
-
-- **Parameter density**: more than 1 free parameter per 50 IS trades is over-parameterized (8 parameters on 150 trades = disqualifying; 8 on 400 trades = borderline).
-- **Hyperopt stability**: run hyperopt twice with different random seeds. If top-1 PF differs by > 15%, the optimization surface is too rough — flag B2.
-- **Parameter cliff**: vary any single parameter ±10% from optimal. If PF drops below 1.0 with any single move, the strategy is curve-fit to that value — flag B11.
-- **Profit concentration**: top 5% of trades accounting for > 50% of profit → flag B14.
-- **Best-period dependency**: removing the best calendar month drops PF below 1.0 → flag B15.
+Examples:
+- OOS PF 1.20 with 35 trades -> adjusted PF 0.90
+- OOS PF 1.35 with 120 trades -> adjusted PF 1.25
 
 ---
 
-## Section 7 — Backtest Period and Time-Weighting
+## Section 4 - IS/OOS Degradation Grading
 
-### 7.1 Minimum Period Requirements
+Compute:
 
-| Parameter | Minimum | Strong |
-|-----------|---------|--------|
-| Total backtest period | 18 months | 30 months |
-| IS period | 12 months | 24 months |
-| OOS period | 6 months | 12 months |
-| Regime coverage required | Bull + Bear + at least one Crab | All four regime types |
+```text
+Degradation Ratio = OOS PF / IS PF
+```
 
-A backtest covering only a bull market is not PROMISING regardless of metrics. The regime coverage check is mandatory.
+Apply these gates:
 
-### 7.2 Regime Classification (Four-Regime Model)
+| Degradation ratio | Grade | Meaning | Action |
+|-------------------|-------|---------|--------|
+| >= 0.70 | Healthy | acceptable generalization | no downgrade |
+| 0.50 to < 0.70 | Warning | moderate degradation | `BORDERLINE` minimum |
+| 0.30 to < 0.50 | Severe | strong overfitting signal | `BORDERLINE` and redesign required |
+| < 0.30 | Failure | edge collapsed out of sample | `REJECT` |
 
-Evaluate separately across all four regimes using BTC as the market proxy.
+Apply the same logic to Sharpe as a secondary check:
+- OOS Sharpe / IS Sharpe < 0.40 -> add overfitting warning
+
+---
+
+## Section 5 - Automatic Elimination Red Lines
+
+Any one of these red lines forces `REJECT` unless stated otherwise.
+
+| Code | Rule |
+|------|------|
+| R1 | IS trades < 100 |
+| R2 | OOS trades < 30 and result is being considered for launch |
+| R3 | Top 3 trades contribute > 40% of total profit |
+| R4 | Any single calendar year contributes > 70% of total profit |
+| R5 | Win Rate > 80% without exceptional supporting explanation |
+| R6 | Look-ahead bias or same-candle-close style leakage is detected |
+| R7 | 0% fees or 0% slippage used in the backtest |
+| R8 | Strategy fails after conservative fee, slippage, and funding adjustments |
+| R9 | Strategy loses money in 2 or more market regimes |
+| R10 | Profile C lacks time-exit or volatility protection |
+| R11 | Profile A single-trade max loss > 1% of capital |
+| R12 | Reported annualized metrics are not normalized to 365-day crypto basis |
+
+`Win Rate > 80%` is not an automatic proof of leakage, but it is a hard launch red flag in this repository and must be rejected unless manually justified with audited execution logic.
+
+---
+
+## Section 6 - Eight Core Metrics Threshold Matrix
+
+Always score all 8 metrics:
+- Profit Factor
+- Sharpe
+- Sortino
+- Calmar
+- Max Drawdown
+- Win Rate
+- Risk:Reward or Profit/Loss Ratio
+- Recovery Factor
+
+Use the table for the chosen profile.
+
+### 6.1 Profile A Thresholds
+
+| Metric | Launch floor | Strong |
+|--------|--------------|--------|
+| Profit Factor | >= 1.80 | >= 2.20 |
+| Sharpe | > 2.00 | >= 2.50 |
+| Sortino | >= 2.50 | >= 3.00 |
+| Calmar | >= 2.00 | >= 3.00 |
+| Max Drawdown | < 5% | < 3% |
+| Win Rate | > 55% | >= 60% |
+| Risk:Reward / P:L | >= 0.8 | >= 1.0 |
+| Recovery Factor | >= 3.0 | >= 5.0 |
+
+Additional launch checks for Profile A:
+- single-trade max loss <= 1% capital
+- profitable after conservative fee + slippage + funding drag
+- equity curve must be visibly smooth, not event-driven
+
+### 6.2 Profile B Thresholds
+
+| Metric | Launch floor | Strong |
+|--------|--------------|--------|
+| Profit Factor | >= 1.30 | >= 1.60 |
+| Sharpe | > 1.00 | >= 1.50 |
+| Sortino | >= 1.50 | >= 2.00 |
+| Calmar | >= 0.80 | >= 1.20 |
+| Max Drawdown | < 20% | < 15% |
+| Win Rate | 35% to 45% | 38% to 45% |
+| Risk:Reward / P:L | > 2.50 | >= 3.00 |
+| Recovery Factor | >= 1.5 | >= 2.5 |
+
+Additional launch checks for Profile B:
+- low win rate is acceptable only if P/L ratio remains dominant
+- do not reject solely for frequent stop losses
+- must show at least one real trend-capture regime with outsized winner retention
+
+### 6.3 Profile C Thresholds
+
+| Metric | Launch floor | Strong |
+|--------|--------------|--------|
+| Profit Factor | >= 1.50 | >= 1.80 |
+| Sharpe | > 1.50 | >= 2.00 |
+| Sortino | >= 2.00 | >= 2.50 |
+| Calmar | >= 1.20 | >= 1.80 |
+| Max Drawdown | < 12% | < 8% |
+| Win Rate | > 60% | >= 65% |
+| Risk:Reward / P:L | 0.8 to 1.2 | 0.9 to 1.1 |
+| Recovery Factor | >= 2.0 | >= 3.0 |
+
+Additional launch checks for Profile C:
+- mandatory time exit or volatility protection
+- crash and one-sided trend defense must be explicit
+- strong sideways performance alone is insufficient if crash containment is weak
+
+### 6.4 Generic fallback thresholds
+
+Use this only if the strategy truly does not fit A/B/C. If uncertain, force the author to choose a profile.
+
+| Metric | Minimum viable |
+|--------|----------------|
+| Profit Factor | >= 1.40 |
+| Sharpe | >= 1.00 |
+| Sortino | >= 1.20 |
+| Calmar | >= 0.80 |
+| Max Drawdown | <= 20% |
+| Win Rate | >= 40% |
+| Risk:Reward / P:L | >= 1.00 |
+| Recovery Factor | >= 1.50 |
+
+---
+
+## Section 7 - Four-Regime Market Evaluation
+
+The strategy must be evaluated separately in all four regimes:
+- Bull trending
+- Bear trending
+- Sideways low-vol
+- Sideways high-vol
+
+Suggested regime proxy:
+- BTC trend and volatility state
+
+### 7.1 Regime definitions
 
 | Regime | Definition |
-|--------|-----------|
-| Bull trending | BTC price > 20-week SMA, ADX > 25, net monthly direction positive over 2+ months |
-| Bear trending | BTC price < 20-week SMA, ADX > 25, net monthly direction negative over 2+ months |
-| Sideways low-vol | ADX < 20, ATR% below 30-day median |
-| Sideways high-vol | ADX < 25, ATR% above 30-day median (choppy with wide swings) |
+|--------|------------|
+| Bull trending | Price above 20-week SMA and directional trend is positive |
+| Bear trending | Price below 20-week SMA and directional trend is negative |
+| Sideways low-vol | low ADX, compressed range, subdued ATR |
+| Sideways high-vol | weak trend but elevated ATR and wide swings |
 
-### 7.3 Per-Regime Thresholds
+### 7.2 Coverage rules
 
-| Regime | Min trades | Minimum PF to be "covered" | Notes |
-|--------|-----------|--------------------------|-------|
-| Bull trending | 20 | 1.0 | Modest loss acceptable if strategy is documented short-only |
-| Bear trending | 20 | 1.0 | Modest loss acceptable if strategy is documented long-only |
-| Sideways low-vol | 15 | 1.0 | |
-| Sideways high-vol | 15 | 1.0 | |
+| Rule | Requirement |
+|------|-------------|
+| Minimum covered regimes | 4 evaluated, 3 profitable minimum |
+| Hard failure | losing in 2 or more regimes |
+| Borderline | losing in exactly 1 regime without explicit documented exclusion |
 
-Losing in 2 or more regimes → REJECT regardless of aggregate metrics. Losing in exactly 1 regime without a documented exclusion → BORDERLINE B12.
-
-A strategy may explicitly exclude one regime. The exclusion must appear in the strategy spec. An excluded regime must show near-zero trade count, not a losing trade sequence.
-
-### 7.4 Recent Performance Weighting
-
-When sub-dividing IS performance for recency checks, apply:
-
-```
-Weighted_PF = (PF_last_6_months × 2 + PF_prior_period × 1) / 3
-```
-
-If Weighted_PF < 1.2 while full-IS PF ≥ 1.4, the strategy may be decaying. Flag B9 and investigate recent regime shift before proceeding.
+Profile interpretation guidance:
+- Profile A should not materially fail in any regime
+- Profile B may be weaker in sideways low-vol, but failure must be documented and compensated elsewhere
+- Profile C must prove it can survive bear trending and sideways high-vol without collapse
 
 ---
 
-## Section 8 — Equity Curve Quality
+## Section 8 - Crypto-Specific Launch Adjustments
 
-### 8.1 Linearity (R² of equity curve)
+These adjustments are mandatory for crypto strategies.
 
-Fit a linear regression to the cumulative equity curve (equity value vs calendar day index).
+### 8.1 Annualization basis
 
-| R² | Interpretation |
-|----|---------------|
-| ≥ 0.93 | Highly linear — consistent edge across regimes (strong signal) |
-| 0.85–0.92 | Acceptable linearity — minor inconsistency |
-| < 0.85 | Non-linear — regime-dependent or curve-fit → BORDERLINE B6 |
+Use 365-day annualization.
 
-Qualitative override of R²: if R² > 0.95 but the curve shows 2–3 very steep climbs separated by flat or declining periods, the strategy is episodically profitable rather than consistently edged. This is a curve-fit pattern regardless of the R² number.
+If metrics use 252-day annualization:
+- do not compare directly to this skill's thresholds
+- normalize first
 
-### 8.2 Drawdown Clustering
+### 8.2 Fee model
 
-A healthy strategy distributes drawdowns across time. Clustering indicates fragility.
+Minimum conservative modeled fee:
+- 0.05% per side
 
-Clustering test:
-1. Identify all drawdown events > 5% peak-to-trough.
-2. Calculate what fraction of all drawdown events fall within any single 90-day window.
-3. If > 50% cluster in one 90-day window → flag BORDERLINE B9 (same fix: extend or decompose by regime).
+Backtests using less than this are not launch-grade.
 
-### 8.3 Win/Loss Streak Analysis
+### 8.3 Slippage
 
-| Metric | Acceptable | Flag |
-|--------|-----------|------|
-| Max consecutive losses | ≤ 10 | > 15 → BORDERLINE |
-| Max consecutive wins | — | > 20 → check for data issue or look-ahead bias |
-| Average losing streak length | ≤ 5 | > 8 sustained → indicates fragile edge |
+Minimum launch retest:
+- 0.10% slippage per side
 
-### 8.4 Monthly Return Distribution
+The strategy must remain profitable after slippage retest.
 
-| Property | Healthy | Flag |
-|----------|---------|------|
-| Profitable months % | ≥ 60% | < 50% → BORDERLINE |
-| Worst single month drawdown | ≤ 15% | > 20% → BORDERLINE |
-| Monthly return CV across quarters | Consistent | CV > 1.5 → high instability flag |
+### 8.4 Funding rate drag
 
-### 8.5 Healthy vs Curve-Fit Equity Curve — Diagnostic Checklist
+For perpetual futures, include funding drag when average holding period makes it relevant.
 
-Healthy curve characteristics:
-- Roughly linear growth with minor oscillation (R² ≥ 0.85)
-- Drawdowns spread across multiple market regimes
-- Performance in bull, bear, and crab periods is within a 2× factor of each other
-- No single month accounts for > 30% of total profit
-- No single trade accounts for > 10% of total profit
+Minimum rule:
+- if average holding time > 8 hours, evaluate funding drag
+- if data unavailable, apply conservative post-hoc assumption
 
-Curve-fit curve characteristics:
-- Parabolic shape (equity accelerating toward end of IS period)
-- One or two "lucky" periods account for > 50% of total profit
-- Flat or declining equity in OOS that was not visible in IS period
-- Very high IS PF (> 2.5) with OOS PF below 1.3
-- Equity curve looks smooth only because trades cluster in one favourable regime
+Funding drag must downgrade the verdict if adjusted PF falls below threshold.
 
----
+### 8.5 Weekend liquidity
 
-## Section 9 — Crypto-Specific Adjustments
+Check weekend degradation explicitly.
 
-### 9.1 Fee Modeling Requirements
+Flag as `BORDERLINE` if:
+- weekend Sharpe is more than 30% below weekday Sharpe
 
-Standard Binance Futures fees:
-- Maker: 0.02% per side
-- Taker: 0.04% per side
-- Minimum modeled fee in backtest: 0.05% per side (0.1% total round-trip as conservative floor)
+### 8.6 Liquidation cascade stress
 
-If the backtest uses 0% fees → fire R13. If the backtest uses fees but < 0.05% per side → flag BORDERLINE and rerun.
+Run at least one stress review around a major liquidation period.
 
-### 9.2 Slippage Standards
+Examples:
+- May 2021
+- November 2022
 
-| Position size vs 24h pair volume | Slippage assumption | Gate |
-|----------------------------------|---------------------|------|
-| < 0.1% of ADV | 0.05% per side | Must be profitable at this level |
-| 0.1–1% of ADV | 0.15% per side | Retest; flag BORDERLINE if fails |
-| > 1% of ADV | 0.3%+ per side | Strategy is not scalable at this size; document |
-
-Hard gate R6: strategy must remain PF ≥ 1.0 after applying 0.1% slippage per side. This is the minimum production assumption for Binance Futures mid-cap pairs.
-
-Do not backtest on pairs with < $10M average daily volume on Binance Futures. For pairs with ADV $10M–$50M, increase slippage assumption by 0.05% per side.
-
-### 9.3 Funding Rate Drag
-
-Perpetual futures funding is charged every 8 hours. For strategies holding positions longer than 8 hours:
-
-| Avg funding rate | Annual drag | Adjustment |
-|-----------------|-------------|-----------|
-| 0.01% per 8h (neutral) | ~11% annually | Subtract from expected return |
-| 0.03% per 8h (hot bull) | ~33% annually | Subtract; rerun if adjusted PF drops below floor |
-| < 0.005% per 8h | ~5.5% annually | Minimal; flag but not blocking |
-
-Standard assumption when funding data unavailable: 0.01% per 8h for long-biased strategies; 0% for market-neutral.
-
-If Freqtrade does not model funding rates, apply post-hoc: subtract estimated annual drag from total return before computing PF. If adjusted PF drops below the PROMISING floor, downgrade tier.
-
-If average trade duration > 24 hours, subtract 0.03%–0.09% per trade from raw PF before evaluation.
-
-### 9.4 Annualisation Base
-
-Use 365 days (not 252). Crypto trades every day including weekends and holidays. Confirm Freqtrade config uses 365 before comparing annualised metrics to any external benchmark using 252.
-
-### 9.5 Regime Shift Risk
-
-| Check | Method | Threshold |
-|-------|--------|-----------|
-| Bear regime performance | Subset backtest to bear quarters | PF must be ≥ 1.0 |
-| Crab regime performance | Subset to sideways quarters | PF must be ≥ 1.0 |
-| Bull vs Bear PF ratio | IS Bull PF / IS Bear PF | Ratio > 3.0 → flag B12 (bull-dependent strategy) |
-
-A strategy that only works in a bull regime is levered beta, not a systematic edge. Mark as BORDERLINE unless the strategy explicitly documents itself as bull-regime-only with a calibrated regime filter.
-
-### 9.6 24/7 Market Structure Effects
-
-- No overnight gap risk: strategies that benefit from equity gap dynamics in backtests do not receive that benefit here.
-- Weekend liquidity: BTC and altcoin liquidity drops 20–40% on weekends. Flag B13 if weekend Sharpe is more than 30% below weekday Sharpe.
-- Funding as regime signal: extreme funding rates (> 0.05% per 8h or < -0.01% per 8h) are market regime signals, not just cost items. A strategy that ignores extreme funding is missing a regime filter opportunity.
-- Liquidation cascades: test the strategy across at least one major liquidation event (e.g., May 2021, November 2022). Pure trend-following strategies are vulnerable during cascade reversals.
-
-### 9.7 Leverage Adjustment
-
-Standard evaluation assumes 1× leverage. If the strategy uses leverage:
-- Report all drawdown metrics on leveraged equity, not notional.
-- Apply leverage multiplier to slippage and funding drag before evaluation.
-- Max Drawdown threshold tightens by leverage factor: at 3× leverage, the 25% PROMISING floor becomes 8% on the leveraged equity curve.
-
-### 9.8 Altcoin-Specific Adjustments
-
-If the strategy trades altcoin futures (not BTC/ETH):
-- Add 0.02% per side spread premium to modeled fees (altcoin spread is wider than BTC).
-- IS period must include at least one BTC-dominant drawdown period (altcoins typically drop 1.5–3× BTC during deleveraging).
-- All minimum trade count requirements increase by 50% (altcoin trade distributions are more heavy-tailed).
+Profile guidance:
+- Profile B must be tested for reversal whipsaw after cascade moves
+- Profile C must be tested for repeated bottom-fishing failure
 
 ---
 
-## Section 10 — Evaluation Workflow
+## Section 9 - Verdict Rules
 
-Agents must follow this exact sequence:
+### 9.1 Tier verdict
 
-```
-Step 1 — Extract metrics
-  IS PF, OOS PF, IS trades, OOS trades, Sharpe, Sortino, Calmar, Max DD, Win Rate,
-  Avg R:R, Recovery Factor, equity curve R², monthly return distribution
+| Tier | Meaning |
+|------|---------|
+| REJECT | invalid, overfit, unsafe, or below minimum standard |
+| BORDERLINE | potentially useful, but not launchable yet |
+| PROMISING | clears research-quality thresholds and may continue |
 
-Step 2 — Check REJECT triggers (R1–R13)
-  IF any trigger fires → Tier = REJECT
-  Stop; write verdict with the specific R-codes
+### 9.2 Launch verdict
 
-Step 3 — Check BORDERLINE triggers (B1–B15)
-  IF any trigger fires → Tier = BORDERLINE
-  List ALL triggered B-codes; each requires its specific fix action
+| Launch verdict | Meaning |
+|----------------|---------|
+| BLOCK | not allowed to proceed toward deployment |
+| CONDITIONAL | may continue research/planning, but launch blockers remain |
+| GO-LIVE-READY | acceptable for deployment preparation |
 
-Step 4 — Check PROMISING floors (Section 3)
-  ALL floors must be met simultaneously
-  IF all met → Tier = PROMISING
+### 9.3 Required mapping
 
-Step 5 — Apply crypto-specific adjustments (Section 9)
-  Funding drag adjustment applied?
-  Slippage retest at 0.1% per side passed?
-  Regime subset check (bear + crab must each be PF ≥ 1.0)?
-  Annualisation base confirmed as 365?
+Use this mapping:
 
-Step 6 — Emit verdict (use format in Section 10.1)
-```
+| Condition | Tier | Launch verdict | Decision |
+|-----------|------|----------------|----------|
+| Any red line triggered | REJECT | BLOCK | REVERT |
+| Statistical gate fails | BORDERLINE minimum | BLOCK | NEED MORE DATA |
+| Degradation ratio < 0.30 | REJECT | BLOCK | REVERT |
+| 8-core metrics partly fail but no red line | BORDERLINE | CONDITIONAL | NEED MORE DATA |
+| Metrics pass but crypto adjustments not validated | PROMISING | CONDITIONAL | KEEP |
+| Metrics pass, regimes pass, adjustments pass | PROMISING | GO-LIVE-READY | KEEP |
 
-### 10.1 Verdict Output Format
+`GO-LIVE-READY` requires all of the following:
+- chosen profile explicitly stated
+- statistical gate passed
+- no red lines
+- degradation ratio >= 0.70 preferred, and never below 0.50
+- all 8 core metrics pass the chosen profile
+- regime coverage passes
+- crypto adjustments validated
+
+---
+
+## Section 10 - Standardized Scorecard Template
+
+Paste this into `analysis-summary.md` when reporting performance.
 
 ```markdown
-## Performance Evaluation Verdict
+## Strategy Launch Gate Scorecard
 
-**Tier**: REJECT | BORDERLINE | PROMISING
-**Decision**: KEEP | REVERT | NEED MORE DATA
+### Basic Identification
+- Strategy Name:
+- Strategy Profile: A | B | C
+- Market: Spot | Futures | Perpetual Futures
+- Exchange:
+- Timeframe:
+- IS Period:
+- OOS Period:
 
-### Triggered Codes
-- <R# or B#>: <metric value> vs threshold <threshold>
+### Final Verdict
+- Tier Verdict: REJECT | BORDERLINE | PROMISING
+- Launch Verdict: BLOCK | CONDITIONAL | GO-LIVE-READY
+- Decision: REVERT | NEED MORE DATA | KEEP
 
-### Metric Scorecard
+### Statistical Significance Gate
+| Item | Value | Requirement | Status |
+|------|-------|-------------|--------|
+| IS Trade Count | | >= 100 | PASS / FAIL |
+| OOS Trade Count | | >= 30 | PASS / FAIL |
+| IS PF Confidence Penalty | | by trade count | INFO |
+| OOS PF Confidence Penalty | | by trade count | INFO |
+| Adjusted IS PF | | profile threshold | PASS / FAIL |
+| Adjusted OOS PF | | profile threshold | PASS / FAIL |
 
-#### Statistical Gate
-- IS Trade Count: N → [PASS / INSUFFICIENT]
-- OOS Trade Count: N → [PASS / INSUFFICIENT]
+### 8 Core Metrics
+| Metric | Value | Profile Floor | Status |
+|--------|-------|---------------|--------|
+| Profit Factor | | | PASS / FAIL |
+| Sharpe | | | PASS / FAIL |
+| Sortino | | | PASS / FAIL |
+| Calmar | | | PASS / FAIL |
+| Max Drawdown | | | PASS / FAIL |
+| Win Rate | | | PASS / FAIL |
+| Risk:Reward / P:L Ratio | | | PASS / FAIL |
+| Recovery Factor | | | PASS / FAIL |
 
-#### Core Metrics (OOS unless noted)
-| Metric | Value | Floor | Status |
-|--------|-------|-------|--------|
-| IS Profit Factor | X.XX | ≥ 1.4 | PASS/FAIL |
-| OOS Profit Factor | X.XX | ≥ 1.1 | PASS/FAIL |
-| OOS/IS PF Ratio | X.XX | ≥ 0.5 | PASS/FAIL |
-| Sharpe (annualised) | X.XX | ≥ 0.8 | PASS/FAIL |
-| Sortino (annualised) | X.XX | ≥ 1.0 | PASS/FAIL |
-| Calmar | X.XX | ≥ 0.5 | PASS/FAIL |
-| Max Drawdown | XX% | ≤ 25% | PASS/FAIL |
-| Drawdown Duration | N days | ≤ 60 | PASS/FAIL |
-| Win Rate | XX% | ≥ 40% | PASS/FAIL |
-| Avg R:R | X.XX | ≥ 0.8 | PASS/FAIL |
-| Recovery Factor | X.XX | ≥ 1.0 | PASS/FAIL |
-| Equity Curve R² | X.XX | ≥ 0.85 | PASS/FAIL |
-| Profitable Months % | XX% | ≥ 60% | PASS/FAIL |
+### Profile-Specific Mandatory Checks
+| Check | Value | Requirement | Status |
+|------|-------|-------------|--------|
+| Single-Trade Max Loss | | <= 1% capital for Profile A | PASS / FAIL / N/A |
+| Trend Convexity | | P/L > 2.5 for Profile B | PASS / FAIL / N/A |
+| Time Exit or Volatility Guard | | mandatory for Profile C | PASS / FAIL / N/A |
 
-#### Overfitting Check
-- OOS/IS PF Ratio: X.XX → [PASS / WARN / BLOCK]
-- OOS/IS Sharpe Ratio: X.XX → [PASS / WARN / BLOCK]
-- Parameter density: N params / N IS trades → [OK / WARN]
+### IS/OOS Degradation
+| Item | Value | Threshold | Status |
+|------|-------|-----------|--------|
+| IS PF | | | INFO |
+| OOS PF | | | INFO |
+| OOS PF / IS PF | | >= 0.70 healthy | PASS / WARN / FAIL |
+| IS Sharpe | | | INFO |
+| OOS Sharpe | | | INFO |
+| OOS Sharpe / IS Sharpe | | >= 0.40 | PASS / WARN / FAIL |
 
-#### Regime Coverage
-- Bull trending: PF X.XX, N trades → [PASS / FAIL / EXCLUDED]
-- Bear trending: PF X.XX, N trades → [PASS / FAIL / EXCLUDED]
-- Sideways low-vol: PF X.XX, N trades → [PASS / FAIL / EXCLUDED]
-- Sideways high-vol: PF X.XX, N trades → [PASS / FAIL / EXCLUDED]
+### Regime Evaluation
+| Regime | PF | Sharpe | Trades | Status |
+|--------|----|--------|--------|--------|
+| Bull trending | | | | PASS / FAIL |
+| Bear trending | | | | PASS / FAIL |
+| Sideways low-vol | | | | PASS / FAIL |
+| Sideways high-vol | | | | PASS / FAIL |
 
-#### Crypto-Specific Checks
-- Fee model: X.XX% per side → [ADEQUATE / INSUFFICIENT]
-- Slippage at 0.1%/side: PF = X.XX → [PASS / FAIL]
-- Funding drag applied: YES/NO — adjusted PF: X.XX
-- Annualisation base: [365 / OTHER]
-- Regime coverage: Bull YES/NO | Bear YES/NO | Crab YES/NO
+### Automatic Elimination Red Lines
+| Red Line | Triggered? | Notes |
+|----------|------------|------|
+| Top 3 trades > 40% of total profit | YES / NO | |
+| Single year > 70% of total profit | YES / NO | |
+| Win Rate > 80% | YES / NO | |
+| Look-ahead bias suspected | YES / NO | |
+| 0% fee or 0% slippage backtest | YES / NO | |
+| Profile C missing crash protection | YES / NO / N/A | |
 
-### Rationale
-<one paragraph explaining the verdict>
+### Crypto-Specific Adjustments
+| Item | Value | Requirement | Status |
+|------|-------|-------------|--------|
+| Annualization Basis | | 365 | PASS / FAIL |
+| Fee Model | | >= 0.05% per side | PASS / FAIL |
+| Slippage Retest PF | | still profitable | PASS / FAIL |
+| Funding Drag Applied | YES / NO | required if relevant | PASS / FAIL |
+| Weekend vs Weekday Sharpe | | weekend degradation <= 30% preferred | PASS / WARN / FAIL |
+| Liquidation Cascade Review | YES / NO | required | PASS / FAIL |
 
-### Required Actions (BORDERLINE only)
-1. B#: <specific fix>
-2. B#: <specific fix>
+### Summary
+- Main strengths:
+- Main weaknesses:
+- Launch blockers:
+- Required next actions:
 ```
 
-### 10.2 Decision Mapping
+---
 
-| Tier | Decision | Next step |
-|------|----------|-----------|
-| PROMISING | KEEP | Proceed to planning phase |
-| BORDERLINE | NEED MORE DATA | Fix all listed B-codes; re-backtest before deciding |
-| REJECT | REVERT | Return to implementation; do not write an iteration plan |
+## Section 11 - Practical Interpretation Rules
+
+Use these interpretation rules when the metrics appear contradictory.
+
+1. Profile A with high PF but MDD above 5% is not launchable.
+2. Profile B with low win rate is acceptable only if P/L ratio remains above 2.5 and OOS degradation is controlled.
+3. Profile C with high win rate but missing crash protection is not launchable.
+4. High total return never overrides poor risk-adjusted metrics.
+5. A strategy that only works in one exceptional year is not considered robust.
+6. A strategy whose profits come mainly from a few outlier trades is not considered production-stable.
 
 ---
 
-## Section 11 — Integration with Other Skills
+## Section 12 - Integration with Other Skills
 
-| Condition | Skill to use |
-|-----------|-------------|
-| OOS gate only (quick check) | `oos-validation-gate` — simpler hard gate |
-| Full tier verdict (this skill) | `strategy-performance-evaluation` |
-| Comparing two experiments | `experiment-compare` — uses this skill's thresholds |
-| Regime filter calibration | `regime-filter-validation` |
-| Structural look-ahead check | `look-ahead-bias-check` — run before this skill |
-| After PROMISING verdict | `trade-strategy-improvement-planning` |
-| After REJECT verdict | `trade-strategy-freqtrade-implementation` |
-| Full backtest → analyse loop | `freqtrade-analysis-workflow` — orchestrates all steps |
+Use together with:
+- `oos-validation-gate` for quick OOS minimum gate
+- `look-ahead-bias-check` before trusting any strong result
+- `freqtrade-analysis-workflow` for backtest and analysis flow
+- `trade-strategy-improvement-planning` after a promising but non-launchable result
+- `trade-strategy-deployment-prep` only after `GO-LIVE-READY`
 
----
-
-## Appendix — Threshold Derivation Rationale
-
-| Threshold | Rationale |
-|-----------|-----------|
-| IS PF ≥ 1.4 | Below 1.4 the edge does not survive slippage + funding drag in live trading |
-| OOS PF ≥ 1.1 | Minimum to remain profitable after live execution costs (0.1% slippage + fees) |
-| OOS/IS ≥ 0.5 | Below 50% retention, IS tuning is producing regime-specific artefacts |
-| OOS/IS ≥ 0.7 for "strong" | 70% retention indicates genuine generalisation, not lucky OOS period |
-| Sharpe ≥ 0.8 | Institutional minimum for systematic strategy allocation consideration in crypto |
-| Sortino ≥ 1.0 | Ensures downside risk is managed independently of upside volatility |
-| Max DD ≤ 25% | Beyond 25%, strategy requires 33% recovery just to return to breakeven |
-| OOS trades ≥ 30 | With < 30 trades, 95% CI on PF spans ± 0.3 — result is noise |
-| R² ≥ 0.85 | Below this, equity growth is non-linear and likely regime-dependent |
-| Backtest ≥ 18 months | Must span at least one partial crypto cycle with mixed regimes |
-| 365-day annualisation | Crypto trades every calendar day; 252 understates annualised vol and return |
-| 0.1% slippage gate | Conservative minimum for Binance Futures mid-cap pairs at reasonable size |
+Do not send a strategy to deployment prep if this skill does not explicitly return `GO-LIVE-READY`.

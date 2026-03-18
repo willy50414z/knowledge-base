@@ -23,7 +23,7 @@ Level 2 — targeted evidence (read only what the task needs)
   → strategies/<family>/sessions/<latest analysis summary>  (for planning tasks)
   → strategies/<family>/hypothesis-log.md                   (for change proposals)
   → strategies/<family>/experiments/<latest comparison>     (for verdict reviews)
-  → relevant SKILL.md Quick Reference section only          (for execution tasks)
+  → relevant SKILL.md for the current phase                 (for execution tasks)
     Stop here for most tasks.
 
 Level 3 — deep diagnostics (read only when thresholds fail or task requires full spec)
