@@ -1,14 +1,16 @@
 ---
 name: documentation-workflow
-description: Keep markdown documentation aligned with actual code and workflow behavior. Use when code and documentation must be updated together or when a document should reflect the implemented system rather than an idealized design.
+description: Trigger a documentation review and update pass when code changes or documentation diverges from implementation. Use when explicitly asked to update or review documentation for accuracy.
 ---
 
-# Documentation Skill
+# Documentation Workflow
 
-Keep `Financial ML step by step.md` aligned with the actual code path, not an idealized design.
+Use this skill when a documentation review and update pass is required.
 
-## Rules
+## Workflow
 
-- If a workflow changes, update the user-specified strategy-local docs in the same task when feasible.
-- If asked to review code and export suggested changes to a markdown file, read `knowledge-base/skills/project-skills/trade-strategy/code-review-md-export/SKILL.md` first and follow that workflow.
-- When code and markdown disagree, use the code as the source of truth and update the markdown accordingly.
+1. Identify which documents need updating based on the code change or user request.
+2. Read the current document and the relevant code.
+3. Apply the documentation-standards rule: use code as the source of truth.
+4. Update the document to reflect the actual implementation.
+5. If the update is substantial, note what changed in the session record.

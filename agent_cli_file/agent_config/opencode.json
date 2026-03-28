@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": "allow",
+  "instructions": [
+    "knowledge-base/agent_cli_file/catalogue.md",
+    "knowledge-base/agent_cli_file/rules/*.md"
+  ]
+}
