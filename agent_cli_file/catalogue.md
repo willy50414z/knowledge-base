@@ -24,7 +24,6 @@
 這些文件不是可執行 skill，而是應優先遵守的共通約束。
 
 @./rules/agent-general-rules.md
-@./rules/codex-execution-permissions.md
 @./rules/file-encoding.md
 @./rules/markdown-output-language.md
 @./rules/tao-working-method.md
