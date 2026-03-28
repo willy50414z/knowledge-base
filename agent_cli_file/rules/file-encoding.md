@@ -1,13 +1,13 @@
-# File Encoding Standard
+# File Encoding Rule
 
-Apply this standard to all text-file work unless the user explicitly requires a different encoding.
+Apply this rule to all text-file work unless the user explicitly requires a different encoding.
 
 ## Rules
 
 - Read text files as UTF-8.
 - Write text files as UTF-8 without BOM.
 - Preserve existing line endings unless the task requires changing them.
-- Treat source code, config, markdown, JSON, YAML, CSV, SQL, logs, and plain-text outputs as text files covered by this standard.
+- Treat source code, config, markdown, JSON, YAML, CSV, SQL, logs, and plain-text outputs as text files covered by this rule.
 - If a file appears garbled, first suspect the viewer or terminal rendering before changing file encoding.
 - Do not convert a file to another encoding unless the user asks for it or the file is confirmed to use a different encoding.
 

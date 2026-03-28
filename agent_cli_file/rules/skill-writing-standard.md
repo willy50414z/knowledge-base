@@ -1,6 +1,6 @@
-# Skill Writing Standard
+# Skill Writing Rule
 
-Apply this standard when creating, moving, splitting, or updating skills in this repository.
+Apply this rule when creating, moving, splitting, or updating skills in this repository.
 
 ## Classification Rules
 
@@ -8,7 +8,7 @@ Apply this standard when creating, moving, splitting, or updating skills in this
 - Put domain knowledge skills under `domain-skills/`.
 - Put framework or tool specific skills under `framework-skills/`.
 - Put reusable non-project workflow skills under `general-skills/`.
-- Put cross-agent standards and policy-like rules under `standards/`.
+- Put cross-agent standards and policy-like rules under `rules/`.
 
 ## Project Skill Rule
 
@@ -22,12 +22,13 @@ Apply this standard when creating, moving, splitting, or updating skills in this
 - If the skill is about trading logic, validation logic, hypothesis design, or ML research patterns, prefer `domain-skills/`.
 - If the skill is about Freqtrade, exchange SDK usage, or another technical framework, prefer `framework-skills/`.
 - If the skill is about documentation quality, markdown editing, or similar reusable workflows, prefer `general-skills/`.
+- If the content is policy, standards, or always-on behavior guidance rather than an executable workflow, prefer `rules/`.
 
 ## Skill Format
 
 - A real skill should live in its own folder and use `SKILL.md`.
 - Do not keep long-lived skill content as a loose markdown file when it should be a reusable skill.
-- Use markdown files under `standards/` only for standards, rules, and reference-style guidance.
+- Use markdown files under `rules/` only for standards, rules, and reference-style guidance.
 - Keep one skill per folder.
 
 ## Frontmatter and Description
@@ -45,11 +46,12 @@ Apply this standard when creating, moving, splitting, or updating skills in this
 - Prefer current repository paths and migration-safe wording.
 - Keep project entry documents short and routing-oriented.
 - Put detailed operational guidance inside the target skill, not the project index.
-- When a skill is moved, update every known reference in the same task.
+- When a skill or rule is moved, update every live reference in the same task.
 
 ## Maintenance Rules
 
 - If a new skill is added, decide its category before creating it.
 - If a skill changes from project-specific to reusable, move it to the appropriate non-project category.
+- If content is actually a rule rather than a skill, move it under `rules/`.
 - If a skill becomes obsolete, delete it instead of leaving duplicate or shadow copies.
 - Re-run references after any move or rename to avoid stale paths.
