@@ -3,5 +3,3 @@
 This project uses the `agent_cli_file` knowledge base as a submodule at `knowledge-base/`.
 
 At session start, read `knowledge-base/agent_cli_file/catalogue.md` to load all shared rules and skills.
-
-If `.ai/catalogue.md` exists in this project, also read it to load project-specific rules and skills.

@@ -1,0 +1,4 @@
+experimental_use_rmcp_client = true
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+developer_instructions = "At session start, read knowledge-base/agent_cli_file/catalogue.md to load shared rules and skills."

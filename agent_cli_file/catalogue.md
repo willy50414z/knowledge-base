@@ -95,6 +95,10 @@ Docs：
 - [documentation-workflow](./skills/general-skills/docs/documentation-workflow/SKILL.md)
 - [markdown-review](./skills/general-skills/docs/markdown-review/SKILL.md)
 
+Agent Config：
+
+- [agent-config-maintenance](./skills/general-skills/agent-config/agent-config-maintenance/SKILL.md)
+
 ## 分類原則
 
 簡單判斷方式：
