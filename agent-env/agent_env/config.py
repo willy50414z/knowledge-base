@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 import json
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
 
 CONFIG_PATH = Path.home() / ".agent-env" / "config.json"
@@ -57,13 +57,21 @@ def save_config(cfg: AppConfig) -> None:
     CONFIG_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+_COERCE: dict[str, object] = {
+    "schema_version": int,
+}
+
+
 def set_config_value(key: str, value: str) -> None:
     cfg = load_config()
     if not hasattr(cfg, key):
         raise ValueError(f"Unknown config key: {key}")
-    setattr(cfg, key, value)
+    coerce = _COERCE.get(key, str)
+    setattr(cfg, key, coerce(value))  # type: ignore[operator]
     save_config(cfg)
 
 
 def _defaults() -> AppConfig:
-    return AppConfig(**_DEFAULTS)  # type: ignore[arg-type]
+    return AppConfig(
+        **{**_DEFAULTS, "last_deployed_agents": list(_DEFAULTS["last_deployed_agents"])}  # type: ignore[arg-type]
+    )

@@ -1,7 +1,4 @@
-import json
-from pathlib import Path
-import pytest
-from agent_env.config import load_config, save_config, set_config_value, AppConfig, CONFIG_PATH
+from agent_env.config import AppConfig, load_config, save_config, set_config_value
 
 
 def test_load_config_returns_defaults_when_no_file(tmp_path, monkeypatch):
@@ -31,7 +28,6 @@ def test_set_config_value(tmp_path, monkeypatch):
 
 
 def test_kb_path_resolves_home(monkeypatch):
-    from agent_env.config import AppConfig
     cfg = AppConfig(
         repo_url="x", knowledge_base_path="~/.agent-env/knowledge-base",
         default_branch="main", last_updated=None,
