@@ -1,0 +1,69 @@
+from __future__ import annotations
+import json
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+
+CONFIG_PATH = Path.home() / ".agent-env" / "config.json"
+
+_DEFAULTS = {
+    "repo_url": "https://github.com/willy50414z/knowledge-base.git",
+    "knowledge_base_path": "~/.agent-env/knowledge-base",
+    "default_branch": "main",
+    "last_updated": None,
+    "last_deployed_agents": [],
+    "schema_version": 1,
+}
+
+
+@dataclass
+class AppConfig:
+    repo_url: str
+    knowledge_base_path: str
+    default_branch: str
+    last_updated: str | None
+    last_deployed_agents: list[str]
+    schema_version: int
+
+    @property
+    def kb_path(self) -> Path:
+        return Path(self.knowledge_base_path).expanduser().resolve()
+
+
+def load_config() -> AppConfig:
+    if not CONFIG_PATH.exists():
+        return _defaults()
+    data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    return AppConfig(
+        repo_url=data.get("repo_url", _DEFAULTS["repo_url"]),
+        knowledge_base_path=data.get("knowledge_base_path", _DEFAULTS["knowledge_base_path"]),
+        default_branch=data.get("default_branch", _DEFAULTS["default_branch"]),
+        last_updated=data.get("last_updated"),
+        last_deployed_agents=data.get("last_deployed_agents", []),
+        schema_version=data.get("schema_version", 1),
+    )
+
+
+def save_config(cfg: AppConfig) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "repo_url": cfg.repo_url,
+        "knowledge_base_path": cfg.knowledge_base_path,
+        "default_branch": cfg.default_branch,
+        "last_updated": cfg.last_updated,
+        "last_deployed_agents": cfg.last_deployed_agents,
+        "schema_version": cfg.schema_version,
+    }
+    CONFIG_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def set_config_value(key: str, value: str) -> None:
+    cfg = load_config()
+    if not hasattr(cfg, key):
+        raise ValueError(f"Unknown config key: {key}")
+    setattr(cfg, key, value)
+    save_config(cfg)
+
+
+def _defaults() -> AppConfig:
+    return AppConfig(**_DEFAULTS)  # type: ignore[arg-type]
