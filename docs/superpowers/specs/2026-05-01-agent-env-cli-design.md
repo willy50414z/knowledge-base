@@ -82,24 +82,27 @@ agent-env/
    | Agent | 目標路徑 | 來源模板 |
    |---|---|---|
    | Claude | `~/.claude/settings.local.json` | `agent_config/.claude/settings.local.json` |
-   | Claude | `~/.claude/CLAUDE.md` | 生成，寫入 catalogue 絕對路徑 |
    | Gemini | `~/.gemini/settings.json` | `agent_config/.gemini/settings.json` |
    | Codex | `~/.codex/config.toml` | `agent_config/.codex/config.toml` |
 
-5. **Project level 部署**（全部放到專案根目錄）：
+   注意：User level 不生成 `~/.claude/CLAUDE.md`，避免覆蓋使用者既有的全域設定（如 superpowers）。
+
+5. **Project level 部署**：
+
+   各 agent 指令/設定檔的放置位置由各 agent 規格決定，非設計選擇：
 
    ```
    <project-root>/
    ├── .claude/
-   │   ├── CLAUDE.md              ← catalogue 絕對路徑引用
+   │   ├── CLAUDE.md              ← catalogue 絕對路徑引用（Claude Code 讀取此路徑）
    │   └── settings.local.json    ← Claude 權限設定
    ├── .gemini/
-   │   └── settings.json          ← Gemini 設定
+   │   └── settings.json          ← Gemini 權限設定
    ├── .codex/
    │   └── config.toml            ← Codex 設定
-   ├── AGENTS.md                  ← Codex/OpenCode 指令（含 catalogue 路徑）
-   ├── GEMINI.md                  ← Gemini 指令（含 catalogue 路徑）
-   ├── opencode.json              ← OpenCode 設定
+   ├── AGENTS.md                  ← Codex/OpenCode 指令，必須在根目錄
+   ├── GEMINI.md                  ← Gemini 指令，必須在根目錄
+   ├── opencode.json              ← OpenCode 設定，必須在根目錄
    └── .ai/
        ├── catalogue.md           ← 專案 skills/rules 索引（含維護規則）
        ├── skills/
