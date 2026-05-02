@@ -120,8 +120,8 @@ def init(project_path, levels, agents, yes, force):
 
         for t in targets:
             action = deploy_target(t, conflict=conflict)
-            status = "✓" if action == "deployed" else "–"
-            click.echo(f"  {status} {t.dest}")
+            status = "+" if action == "deployed" else "-"
+            click.echo(f"  [{status}] {t.dest}")
 
     if selected_agents and not any_valid:
         raise SystemExit(1)
@@ -129,7 +129,7 @@ def init(project_path, levels, agents, yes, force):
     if "project" in selected_levels:
         created = create_ai_scaffold(project_root)
         for p in created:
-            click.echo(f"  ✓ {p}")
+            click.echo(f"  [+] {p}")
 
     click.echo("Done.")
 
