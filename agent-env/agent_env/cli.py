@@ -10,14 +10,15 @@ import click
 import inquirer
 
 from agent_env import github
+from agent_env.agents import AgentAdapter, DeployTarget
 from agent_env.agents.claude import ClaudeAdapter
 from agent_env.agents.codex import CodexAdapter
 from agent_env.agents.gemini import GeminiAdapter
 from agent_env.agents.opencode import OpenCodeAdapter
-from agent_env.config import load_config, save_config, set_config_value
+from agent_env.config import AppConfig, load_config, save_config, set_config_value
 from agent_env.deployer import ConflictAction, create_ai_scaffold, deploy_target
 
-ADAPTERS: dict[str, object] = {
+ADAPTERS: dict[str, AgentAdapter] = {
     "claude": ClaudeAdapter(),
     "gemini": GeminiAdapter(),
     "codex": CodexAdapter(),
@@ -25,18 +26,22 @@ ADAPTERS: dict[str, object] = {
 }
 
 
-def _kb_path(cfg) -> Path:
+def _kb_path(cfg: AppConfig) -> Path:
     override = os.environ.get("AGENT_ENV_KB_PATH")
     if override:
         return Path(override)
     return cfg.kb_path
 
 
-def _ensure_kb(cfg) -> Path:
+def _ensure_kb(cfg: AppConfig) -> Path:
     kb = _kb_path(cfg)
     if not kb.exists():
         click.echo(f"Cloning knowledge-base from {cfg.repo_url} ...")
-        github.clone(cfg.repo_url, kb)
+        try:
+            github.clone(cfg.repo_url, kb)
+        except github.GitError as exc:
+            click.echo(f"ERROR: Clone failed: {exc}", err=True)
+            raise SystemExit(1)
         click.echo("Done.")
     return kb
 
@@ -98,14 +103,16 @@ def init(project_path, levels, agents, yes, force):
 
     project_root = Path(project_path).resolve()
     conflict = ConflictAction.OVERWRITE if force else ConflictAction.SKIP
+    any_valid = False
 
     for agent_name in selected_agents:
         adapter = ADAPTERS.get(agent_name)
         if not adapter:
-            click.echo(f"Unknown agent: {agent_name}", err=True)
+            click.echo(f"ERROR: Unknown agent: {agent_name}", err=True)
             continue
 
-        targets = []
+        any_valid = True
+        targets: list[DeployTarget] = []
         if "user" in selected_levels:
             targets.extend(adapter.user_targets(kb))
         if "project" in selected_levels:
@@ -115,6 +122,9 @@ def init(project_path, levels, agents, yes, force):
             action = deploy_target(t, conflict=conflict)
             status = "✓" if action == "deployed" else "–"
             click.echo(f"  {status} {t.dest}")
+
+    if selected_agents and not any_valid:
+        raise SystemExit(1)
 
     if "project" in selected_levels:
         created = create_ai_scaffold(project_root)
@@ -147,11 +157,14 @@ def update(do_stash):
             raise SystemExit(1)
 
     click.echo("Pulling latest changes...")
-    before, after = github.pull(kb, cfg.default_branch)
-    click.echo(f"  {before[:8]} -> {after[:8]}")
-
-    click.echo("Updating submodules...")
-    github.update_submodules(kb)
+    try:
+        before, after = github.pull(kb, cfg.default_branch)
+        click.echo(f"  {before[:8]} -> {after[:8]}")
+        click.echo("Updating submodules...")
+        github.update_submodules(kb)
+    except github.GitError as exc:
+        click.echo(f"ERROR: {exc}", err=True)
+        raise SystemExit(1)
 
     cfg.last_updated = datetime.now(timezone.utc).isoformat()
     save_config(cfg)
@@ -176,7 +189,7 @@ def status(project_path):
 
     click.echo("\nUser level:")
     if github.is_git_repo(kb):
-        for name, adapter in ADAPTERS.items():
+        for adapter in ADAPTERS.values():
             for t in adapter.user_targets(kb):
                 if adapter.is_managed(t.dest):
                     managed = "managed"
@@ -191,7 +204,7 @@ def status(project_path):
     project_root = Path(project_path).resolve()
     click.echo(f"\nProject level ({project_root}):")
     if github.is_git_repo(kb):
-        for name, adapter in ADAPTERS.items():
+        for adapter in ADAPTERS.values():
             for t in adapter.project_targets(kb, project_root):
                 if adapter.is_managed(t.dest):
                     managed = "managed"
@@ -221,7 +234,8 @@ def doctor(project_path):
         click.echo(f"  OK    {msg}")
 
     click.echo("Checking knowledge-base...")
-    if github.is_git_repo(kb):
+    kb_ok = github.is_git_repo(kb)
+    if kb_ok:
         good(f"knowledge-base exists at {kb}")
     else:
         fail(f"knowledge-base not found at {kb} — run `agent-env init`")
@@ -229,20 +243,23 @@ def doctor(project_path):
     catalogue = kb / "agent_cli_file" / "catalogue.md"
     if catalogue.exists():
         good("catalogue.md exists")
-    else:
+    elif kb_ok:
         fail(f"catalogue.md missing: {catalogue}")
 
     project_root = Path(project_path).resolve()
     click.echo(f"\nChecking project ({project_root})...")
-    for name, adapter in ADAPTERS.items():
-        for t in adapter.project_targets(kb, project_root):
-            if t.dest.exists():
-                if adapter.is_managed(t.dest):
-                    good(str(t.dest))
+    if kb_ok:
+        for adapter in ADAPTERS.values():
+            for t in adapter.project_targets(kb, project_root):
+                if t.dest.exists():
+                    if adapter.is_managed(t.dest):
+                        good(str(t.dest))
+                    else:
+                        click.echo(f"  WARN  {t.dest} exists but unmanaged")
                 else:
-                    click.echo(f"  WARN  {t.dest} exists but unmanaged")
-            else:
-                click.echo(f"  MISS  {t.dest}")
+                    click.echo(f"  MISS  {t.dest}")
+    else:
+        click.echo("  (knowledge-base not cloned — skipping project checks)")
 
     raise SystemExit(0 if ok else 1)
 
@@ -271,7 +288,7 @@ def config_get(key):
     """Get a config value."""
     cfg = load_config()
     if not hasattr(cfg, key):
-        click.echo(f"ERROR: Unknown key: {key}", err=True)
+        click.echo(f"ERROR: Unknown config key: {key}", err=True)
         raise SystemExit(1)
     click.echo(getattr(cfg, key))
 
