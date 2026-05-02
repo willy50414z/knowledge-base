@@ -99,6 +99,10 @@ Agent Config：
 
 - [agent-config-maintenance](./skills/general-skills/agent-config/agent-config-maintenance/SKILL.md)
 
+Planka：
+
+- [planka-debug](./skills/general-skills/planka-debug/SKILL.md)
+
 ## 分類原則
 
 簡單判斷方式：
