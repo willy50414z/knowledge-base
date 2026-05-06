@@ -153,8 +153,8 @@ def init(project_path, levels, agents, yes, force):
         click.echo("Syncing Claude skills...")
         for s in sync_skills_dir(kb / "agent_cli_file" / "skills", user_skills):
             click.echo(f"  synced skill: {s}")
-        for s in sync_skills_dir(cfg.anthropics_skills_dir / "skills", user_skills / "document-skills"):
-            click.echo(f"  synced skill: document-skills:{s}")
+        for s in sync_skills_dir(cfg.anthropics_skills_dir / "skills", user_skills):
+            click.echo(f"  synced skill: {s}")
 
     if "codex" in selected_agents:
         rules_src = kb / "agent_cli_file" / "rules"
@@ -167,15 +167,21 @@ def init(project_path, levels, agents, yes, force):
             action = inject_toml_key(codex_cfg, "developer_instructions", instructions)
             click.echo(f"  [{action}] {codex_cfg}")
 
+            codex_user_skills = Path.home() / ".codex" / "skills"
             for name in sync_files_dir(rules_src, Path.home() / ".codex" / "rules", "*.md"):
                 click.echo(f"  synced rule: {name}")
-            for name in sync_skills_dir(skills_src, Path.home() / ".codex" / "skills"):
+            for name in sync_skills_dir(skills_src, codex_user_skills):
+                click.echo(f"  synced skill: {name}")
+            for name in sync_skills_dir(cfg.anthropics_skills_dir / "skills", codex_user_skills):
                 click.echo(f"  synced skill: {name}")
 
         if "project" in selected_levels:
+            codex_project_skills = project_root / ".codex" / "skills"
             for name in sync_files_dir(rules_src, project_root / ".codex" / "rules", "*.md"):
                 click.echo(f"  synced rule: {name}")
-            for name in sync_skills_dir(skills_src, project_root / ".codex" / "skills"):
+            for name in sync_skills_dir(skills_src, codex_project_skills):
+                click.echo(f"  synced skill: {name}")
+            for name in sync_skills_dir(cfg.anthropics_skills_dir / "skills", codex_project_skills):
                 click.echo(f"  synced skill: {name}")
 
     click.echo("Done.")
@@ -225,8 +231,8 @@ def update(do_stash):
     user_skills = Path.home() / ".claude" / "skills"
     for s in sync_skills_dir(kb / "agent_cli_file" / "skills", user_skills):
         click.echo(f"  synced skill: {s}")
-    for s in sync_skills_dir(cfg.anthropics_skills_dir / "skills", user_skills / "document-skills"):
-        click.echo(f"  synced skill: document-skills:{s}")
+    for s in sync_skills_dir(cfg.anthropics_skills_dir / "skills", user_skills):
+        click.echo(f"  synced skill: {s}")
 
     cfg.last_updated = datetime.now(timezone.utc).isoformat()
     save_config(cfg)
