@@ -121,12 +121,15 @@ agent-env/
    | Agent | 目標路徑 | 來源模板 |
    |---|---|---|
    | Claude | `~/.claude/settings.local.json` | `agent_config/.claude/settings.local.json` |
+   | Claude | `~/.claude/skills/<skill>/` | `agent_cli_file/skills/<skill>/`（整批複製） |
    | Gemini | `~/.gemini/settings.json` | `agent_config/.gemini/settings.json` |
    | Codex | `~/.codex/config.toml` | `agent_config/.codex/config.toml` |
    | OpenCode | 不支援 | 無 |
 
    注意：
-   - User level 的目的是部署工具設定與權限設定，不保證部署 shared rules/skills 指令。
+   - User level 的目的是部署工具設定、權限設定，以及讓 Claude Code Skill tool 可探索到 shared skills。
+   - Skills 採**複製**而非 symlink，以確保 Windows 相容性。`agent-env update` 後重新執行 `init --user` 或呼叫 `agent-env sync-skills` 可同步最新版本。
+   - Rules 透過 CLAUDE.md 的 `@絕對路徑` 引用即可，不需要複製到特定目錄。
    - User level 不生成 `~/.claude/CLAUDE.md`、`~/.gemini/GEMINI.md`、`~/.config/opencode/opencode.json` 等 instruction 檔，避免覆蓋使用者既有的全域設定（如 superpowers）。
    - Codex 例外：`~/.codex/config.toml` 本身同時承載工具設定與 `developer_instructions`，因此 user level 會寫入 shared instruction。
 
@@ -138,7 +141,10 @@ agent-env/
    <project-root>/
    ├── .claude/
    │   ├── CLAUDE.md              ← shared instruction 引用（依 adapter 決定絕對或相對路徑）
-   │   └── settings.local.json    ← Claude 權限設定
+   │   ├── settings.local.json    ← Claude 權限設定
+   │   └── skills/                ← 從 agent_cli_file/skills/ 複製的 shared skills
+   │       └── <skill-name>/
+   │           └── SKILL.md
    ├── .gemini/
    │   └── settings.json          ← Gemini 權限設定
    ├── .codex/
@@ -153,6 +159,11 @@ agent-env/
        └── rules/
            └── .gitkeep
    ```
+
+   Skills 複製規則：
+   - `agent_cli_file/skills/<skill>/` 整個目錄複製到目標 skills 目錄
+   - 目標已存在的同名 skill 目錄一律覆蓋（skills 目錄視為 agent-env 完全管理）
+   - `agent-env update` 後，需重新執行 `init` 或獨立的 `agent-env sync-skills` 指令來同步
 
 6. **路徑改寫：**
 

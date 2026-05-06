@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +16,7 @@ from agent_env.agents.codex import CodexAdapter
 from agent_env.agents.gemini import GeminiAdapter
 from agent_env.agents.opencode import OpenCodeAdapter
 from agent_env.config import AppConfig, load_config, save_config, set_config_value
-from agent_env.deployer import ConflictAction, create_ai_scaffold, deploy_target
+from agent_env.deployer import ConflictAction, create_ai_scaffold, deploy_target, inject_md_block, inject_toml_key, sync_files_dir, sync_skills_dir
 
 ADAPTERS: dict[str, AgentAdapter] = {
     "claude": ClaudeAdapter(),
@@ -133,8 +132,39 @@ def init(project_path, levels, agents, yes, force):
             click.echo(f"  [+] {p}")
 
     if "claude" in selected_agents:
+        claude_adapter = ADAPTERS["claude"]
+        if "user" in selected_levels:
+            claude_md = Path.home() / ".claude" / "CLAUDE.md"
+            action = inject_md_block(claude_md, claude_adapter.catalogue_block_content(kb))
+            click.echo(f"  [{action}] {claude_md}")
+
+        skills_src = kb / "agent_cli_file" / "skills"
         click.echo("Syncing Claude skills...")
-        _sync_claude_skills(kb)
+        synced = sync_skills_dir(skills_src, Path.home() / ".claude" / "skills")
+        for s in synced:
+            click.echo(f"  synced skill: {s}")
+
+    if "codex" in selected_agents:
+        rules_src = kb / "agent_cli_file" / "rules"
+        skills_src = kb / "agent_cli_file" / "skills"
+
+        if "user" in selected_levels:
+            catalogue_posix = (kb / "agent_cli_file" / "catalogue.md").resolve().as_posix()
+            instructions = f"At session start, read {catalogue_posix} to load shared rules and skills."
+            codex_cfg = Path.home() / ".codex" / "config.toml"
+            action = inject_toml_key(codex_cfg, "developer_instructions", instructions)
+            click.echo(f"  [{action}] {codex_cfg}")
+
+            for name in sync_files_dir(rules_src, Path.home() / ".codex" / "rules", "*.md"):
+                click.echo(f"  synced rule: {name}")
+            for name in sync_skills_dir(skills_src, Path.home() / ".codex" / "skills"):
+                click.echo(f"  synced skill: {name}")
+
+        if "project" in selected_levels:
+            for name in sync_files_dir(rules_src, project_root / ".codex" / "rules", "*.md"):
+                click.echo(f"  synced rule: {name}")
+            for name in sync_skills_dir(skills_src, project_root / ".codex" / "skills"):
+                click.echo(f"  synced skill: {name}")
 
     click.echo("Done.")
 
@@ -171,26 +201,14 @@ def update(do_stash):
         click.echo(f"ERROR: {exc}", err=True)
         raise SystemExit(1)
 
-    _sync_claude_skills(kb)
+    skills_src = kb / "agent_cli_file" / "skills" / "general-skills"
+    synced = sync_skills_dir(skills_src, Path.home() / ".claude" / "skills")
+    for s in synced:
+        click.echo(f"  synced skill: {s}")
 
     cfg.last_updated = datetime.now(timezone.utc).isoformat()
     save_config(cfg)
     click.echo("Done.")
-
-
-def _sync_claude_skills(kb: Path) -> None:
-    src = kb / "agent_cli_file" / "skills" / "general-skills"
-    dst = Path.home() / ".claude" / "skills"
-    if not src.exists():
-        return
-    dst.mkdir(parents=True, exist_ok=True)
-    for skill_dir in src.iterdir():
-        if skill_dir.is_dir():
-            target = dst / skill_dir.name
-            if target.exists():
-                shutil.rmtree(target)
-            shutil.copytree(skill_dir, target)
-            click.echo(f"  synced skill: {skill_dir.name}")
 
 
 @main.command()

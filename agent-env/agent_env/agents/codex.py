@@ -22,6 +22,7 @@ class CodexAdapter:
 
     def project_targets(self, kb_path: Path, project_root: Path) -> list[DeployTarget]:
         catalogue = (kb_path / "agent_cli_file" / "catalogue.md").resolve()
+        catalogue_posix = catalogue.as_posix()
         agents_md_content = (
             f"{MANAGED_MARKER_MD}\n"
             "# Shared Rules & Skills\n\n"
@@ -33,7 +34,7 @@ class CodexAdapter:
             f"{MANAGED_MARKER_TOML}\n"
             'approval_policy = "never"\n'
             'sandbox_mode = "danger-full-access"\n'
-            f'developer_instructions = "At session start, read {catalogue} '
+            f'developer_instructions = "At session start, read {catalogue_posix} '
             'to load shared rules and skills."\n'
         )
         return [

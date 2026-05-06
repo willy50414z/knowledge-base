@@ -488,6 +488,7 @@ class AgentAdapter(Protocol):
     def user_targets(self, kb_path: Path) -> list[DeployTarget]: ...
     def project_targets(self, kb_path: Path, project_root: Path) -> list[DeployTarget]: ...
     def is_managed(self, path: Path) -> bool: ...
+    def skills_src(self, kb_path: Path) -> Path | None: ...  # None = this agent has no skills to sync
 ```
 
 - [ ] **Step 2: Verify import works**
@@ -552,6 +553,13 @@ def test_project_targets_includes_settings(kb_root, project_root):
     assert any("settings.local.json" in str(d) for d in dests)
 
 
+def test_skills_src_returns_path(kb_root):
+    adapter = ClaudeAdapter()
+    src = adapter.skills_src(kb_root)
+    assert src is not None
+    assert src == kb_root / "agent_cli_file" / "skills"
+
+
 def test_is_managed_detects_marker(tmp_path):
     adapter = ClaudeAdapter()
     f = tmp_path / "CLAUDE.md"
@@ -599,13 +607,12 @@ class ClaudeAdapter:
 
     def project_targets(self, kb_path: Path, project_root: Path) -> list[DeployTarget]:
         catalogue = (kb_path / "agent_cli_file" / "catalogue.md").resolve()
-        ai_catalogue = project_root / ".ai" / "catalogue.md"
         claude_md_content = (
             f"{MANAGED_MARKER_MD}\n"
             "# Shared Rules & Skills\n\n"
             "At session start, load the shared rules and skills index:\n\n"
             f"@{catalogue}\n\n"
-            f"If `.ai/catalogue.md` exists in this project, read it to load project-specific rules and skills.\n"
+            "If `.ai/catalogue.md` exists in this project, read it to load project-specific rules and skills.\n"
         )
         settings_template = kb_path / "agent_cli_file" / "agent_config" / ".claude" / "settings.local.json"
         return [
@@ -622,6 +629,9 @@ class ClaudeAdapter:
                 managed_marker=f'"{MANAGED_MARKER_JSON_KEY}": "{MANAGED_MARKER_JSON_VALUE}"',
             ),
         ]
+
+    def skills_src(self, kb_path: Path) -> Path | None:
+        return kb_path / "agent_cli_file" / "skills"
 
     def is_managed(self, path: Path) -> bool:
         if not path.exists():
@@ -935,7 +945,7 @@ git commit -m "feat: add Gemini, Codex, OpenCode adapters"
 ```python
 # tests/test_deployer.py
 from pathlib import Path
-from agent_env.deployer import deploy_target, ConflictAction
+from agent_env.deployer import deploy_target, sync_skills_dir, ConflictAction
 from agent_env.agents import DeployTarget, MANAGED_MARKER_MD
 
 
@@ -985,6 +995,37 @@ def test_deploy_template_injects_marker(tmp_path, kb_root):
     t = DeployTarget(dest=dest, template=template, content=None, managed_marker='"_managed_by": "agent-env"')
     deploy_target(t, conflict=ConflictAction.OVERWRITE)
     assert '"_managed_by": "agent-env"' in dest.read_text(encoding="utf-8")
+
+
+def test_sync_skills_dir_copies_skills(tmp_path):
+    src = tmp_path / "src_skills"
+    (src / "my-skill").mkdir(parents=True)
+    (src / "my-skill" / "SKILL.md").write_text("# My Skill", encoding="utf-8")
+
+    dest = tmp_path / "dest_skills"
+    synced = sync_skills_dir(src, dest)
+
+    assert (dest / "my-skill" / "SKILL.md").exists()
+    assert synced == ["my-skill"]
+
+
+def test_sync_skills_dir_overwrites_existing(tmp_path):
+    src = tmp_path / "src_skills"
+    (src / "skill-a").mkdir(parents=True)
+    (src / "skill-a" / "SKILL.md").write_text("new content", encoding="utf-8")
+
+    dest = tmp_path / "dest_skills"
+    (dest / "skill-a").mkdir(parents=True)
+    (dest / "skill-a" / "SKILL.md").write_text("old content", encoding="utf-8")
+
+    sync_skills_dir(src, dest)
+
+    assert (dest / "skill-a" / "SKILL.md").read_text(encoding="utf-8") == "new content"
+
+
+def test_sync_skills_dir_returns_empty_when_src_missing(tmp_path):
+    synced = sync_skills_dir(tmp_path / "nonexistent", tmp_path / "dest")
+    assert synced == []
 ```
 
 - [ ] **Step 2: Run to verify failures**
@@ -1075,6 +1116,26 @@ AI_CATALOGUE_TEMPLATE = """\
 - 新增 `skills/*/SKILL.md` 時，更新本檔案的 Skills 區塊
 - 命名與格式參照 shared `catalogue.md`
 """
+
+
+def sync_skills_dir(src: Path, dest: Path) -> list[str]:
+    """Copy all skill subdirectories from src to dest, overwriting existing ones.
+
+    Returns list of synced skill names. Returns [] if src does not exist.
+    Skills directory is treated as fully managed — always overwrite.
+    """
+    if not src.exists():
+        return []
+    dest.mkdir(parents=True, exist_ok=True)
+    synced = []
+    for skill_dir in src.iterdir():
+        if skill_dir.is_dir():
+            target = dest / skill_dir.name
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(skill_dir, target)
+            synced.append(skill_dir.name)
+    return synced
 
 
 def create_ai_scaffold(project_root: Path) -> list[Path]:
@@ -1199,7 +1260,7 @@ import inquirer
 from agent_env import config as cfg_module
 from agent_env.config import load_config, save_config, set_config_value
 from agent_env import github
-from agent_env.deployer import deploy_target, create_ai_scaffold, ConflictAction, is_managed
+from agent_env.deployer import deploy_target, sync_skills_dir, create_ai_scaffold, ConflictAction, is_managed
 from agent_env.agents import DeployTarget
 from agent_env.agents.claude import ClaudeAdapter
 from agent_env.agents.gemini import GeminiAdapter
@@ -1307,6 +1368,18 @@ def init(project_path, levels, agents, yes, force):
             action = deploy_target(t, conflict=conflict)
             status = "✓" if action == "deployed" else "–"
             click.echo(f"  {status} {t.dest}")
+
+        # Sync skills directories (always overwrite — skills dir is fully managed)
+        skills_src = adapter.skills_src(kb)
+        if skills_src is not None:
+            if "user" in selected_levels:
+                synced = sync_skills_dir(skills_src, Path.home() / f".{adapter.name}" / "skills")
+                for s in synced:
+                    click.echo(f"  ✓ skill: {s}")
+            if "project" in selected_levels:
+                synced = sync_skills_dir(skills_src, project_root / f".{adapter.name}" / "skills")
+                for s in synced:
+                    click.echo(f"  ✓ skill: {s}")
 
     if "project" in selected_levels:
         created = create_ai_scaffold(project_root)

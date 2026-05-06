@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
 from agent_env.agents import MANAGED_MARKER_JSON_KEY, MANAGED_MARKER_JSON_VALUE, DeployTarget
+
+BLOCK_START = "<!-- agent-env:start -->"
+BLOCK_END = "<!-- agent-env:end -->"
 
 
 class ConflictAction(str, Enum):
@@ -74,6 +78,103 @@ AI_CATALOGUE_TEMPLATE = """\
 - 新增 `skills/*/SKILL.md` 時，更新本檔案的 Skills 區塊
 - 命名與格式參照 shared `catalogue.md`
 """
+
+
+def inject_toml_key(file: Path, key: str, value: str) -> str:
+    """Insert or update a single top-level key in an existing TOML file.
+
+    Uses forward slashes in value to avoid TOML escape issues on Windows.
+    Inserts before the first table header ([...]) so the key stays top-level.
+    Returns 'injected' or 'updated'.
+    """
+    line = f'{key} = "{value}"'
+    key_pattern = re.compile(rf"^{re.escape(key)}\s*=.*$", re.MULTILINE)
+
+    file.parent.mkdir(parents=True, exist_ok=True)
+
+    if not file.exists():
+        file.write_text(line + "\n", encoding="utf-8")
+        return "injected"
+
+    existing = file.read_text(encoding="utf-8")
+
+    action = "updated" if key_pattern.search(existing) else "injected"
+
+    # Always remove existing occurrence (may be inside a table section) then re-insert at top
+    cleaned = key_pattern.sub("", existing)
+    # Remove any blank lines left by removal
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+
+    first_table = re.search(r"^\[", cleaned, re.MULTILINE)
+    if first_table:
+        pos = first_table.start()
+        updated = cleaned[:pos].rstrip() + "\n" + line + "\n" + cleaned[pos:]
+    else:
+        updated = cleaned.rstrip() + "\n" + line + "\n"
+
+    file.write_text(updated, encoding="utf-8")
+    return action
+
+
+def inject_md_block(file: Path, block_content: str) -> str:
+    """Insert or update the agent-env managed block in a markdown file.
+
+    Preserves all existing content outside the block. Returns 'injected' or 'updated'.
+    """
+    block = f"{BLOCK_START}\n{block_content.strip()}\n{BLOCK_END}"
+    pattern = re.compile(
+        rf"{re.escape(BLOCK_START)}.*?{re.escape(BLOCK_END)}", re.DOTALL
+    )
+
+    file.parent.mkdir(parents=True, exist_ok=True)
+
+    if not file.exists():
+        file.write_text(block + "\n", encoding="utf-8")
+        return "injected"
+
+    existing = file.read_text(encoding="utf-8")
+    if pattern.search(existing):
+        updated = pattern.sub(lambda _: block, existing)
+        file.write_text(updated, encoding="utf-8")
+        return "updated"
+
+    file.write_text(existing.rstrip() + "\n\n" + block + "\n", encoding="utf-8")
+    return "injected"
+
+
+def sync_files_dir(src: Path, dest: Path, glob: str = "*") -> list[str]:
+    """Copy all files matching glob from src to dest, overwriting existing ones.
+
+    Returns list of copied filenames. Returns [] if src does not exist.
+    """
+    if not src.exists():
+        return []
+    dest.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for f in src.glob(glob):
+        if f.is_file():
+            shutil.copy2(f, dest / f.name)
+            copied.append(f.name)
+    return copied
+
+
+def sync_skills_dir(src: Path, dest: Path) -> list[str]:
+    """Copy all skill subdirectories from src to dest, overwriting existing ones.
+
+    Returns list of synced skill names. Returns [] if src does not exist.
+    """
+    if not src.exists():
+        return []
+    dest.mkdir(parents=True, exist_ok=True)
+    synced = []
+    for skill_dir in src.iterdir():
+        if skill_dir.is_dir():
+            target = dest / skill_dir.name
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(skill_dir, target)
+            synced.append(skill_dir.name)
+    return synced
 
 
 def create_ai_scaffold(project_root: Path) -> list[Path]:
