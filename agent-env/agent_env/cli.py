@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -131,6 +132,10 @@ def init(project_path, levels, agents, yes, force):
         for p in created:
             click.echo(f"  [+] {p}")
 
+    if "claude" in selected_agents:
+        click.echo("Syncing Claude skills...")
+        _sync_claude_skills(kb)
+
     click.echo("Done.")
 
 
@@ -166,9 +171,26 @@ def update(do_stash):
         click.echo(f"ERROR: {exc}", err=True)
         raise SystemExit(1)
 
+    _sync_claude_skills(kb)
+
     cfg.last_updated = datetime.now(timezone.utc).isoformat()
     save_config(cfg)
     click.echo("Done.")
+
+
+def _sync_claude_skills(kb: Path) -> None:
+    src = kb / "agent_cli_file" / "skills" / "general-skills"
+    dst = Path.home() / ".claude" / "skills"
+    if not src.exists():
+        return
+    dst.mkdir(parents=True, exist_ok=True)
+    for skill_dir in src.iterdir():
+        if skill_dir.is_dir():
+            target = dst / skill_dir.name
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(skill_dir, target)
+            click.echo(f"  synced skill: {skill_dir.name}")
 
 
 @main.command()

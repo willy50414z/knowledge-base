@@ -55,6 +55,30 @@ def test_init_skips_existing_unmanaged(runner, kb_root, project_root, monkeypatc
     assert "My own CLAUDE.md" in existing.read_text(encoding="utf-8")
 
 
+def test_init_syncs_claude_skills(runner, kb_root, project_root, monkeypatch, tmp_path):
+    monkeypatch.setattr("agent_env.config.CONFIG_PATH", tmp_path / "config.json")
+    monkeypatch.setattr("agent_env.github.clone", lambda url, dest: None)
+
+    # create a fake general-skill in the kb
+    skill_dir = kb_root / "agent_cli_file" / "skills" / "general-skills" / "my-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# My Skill\n", encoding="utf-8")
+
+    claude_skills_dst = tmp_path / "claude_skills"
+    monkeypatch.setattr("agent_env.cli.Path.home", lambda: tmp_path)
+
+    result = runner.invoke(main, [
+        "init",
+        "--path", str(project_root),
+        "--project",
+        "--agents", "claude",
+        "--yes",
+    ], env={"AGENT_ENV_KB_PATH": str(kb_root)})
+
+    assert result.exit_code == 0, result.output
+    assert "synced skill: my-skill" in result.output
+
+
 def test_config_list(runner, monkeypatch, tmp_path):
     monkeypatch.setattr("agent_env.config.CONFIG_PATH", tmp_path / "config.json")
     result = runner.invoke(main, ["config", "list"])

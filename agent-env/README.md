@@ -4,6 +4,11 @@ Bootstrap LLM agent environments from your [knowledge-base](https://github.com/w
 
 Whenever you start a new project or set up a fresh server, run `agent-env init` to pull the latest rules, skills, and config from your knowledge-base and deploy them to the right locations for each agent (Claude, Gemini, Codex, OpenCode).
 
+**Skill management flow:**
+
+- **Universal skills/rules** live in `knowledge-base/agent_cli_file/skills/` and `rules/`. All agents load them via an absolute path written by `agent-env init`. Claude also gets `/skill-name` shortcuts via `~/.claude/skills/`, kept in sync by `agent-env update`.
+- **Project-specific skills/rules** live in the project's `.ai/skills/` and `.ai/rules/`. Add them there and update `.ai/catalogue.md`; they are never promoted to the knowledge-base automatically.
+
 ---
 
 ## Installation
@@ -38,7 +43,7 @@ agent-env init --project --agents claude --yes
 # Multiple agents
 agent-env init --project --agents claude,gemini,codex,opencode --yes
 
-# User-level files only (e.g. ~/.claude/settings.local.json)
+# User-level files only — sets up ~/.claude/CLAUDE.md and settings
 agent-env init --user --agents claude --yes
 
 # Overwrite existing managed files without asking
@@ -69,9 +74,9 @@ agent-env init --project --agents claude --force
 
 | Agent | Files |
 |---|---|
-| Claude | `~/.claude/settings.local.json` |
+| Claude | `~/.claude/CLAUDE.md` (loads knowledge-base catalogue), `~/.claude/settings.local.json` |
 | Gemini | `~/.gemini/settings.json` |
-| Codex | `~/.codex/config.toml` |
+| Codex | `~/.codex/config.toml` (sets `developer_instructions` to read catalogue) |
 
 A `.ai/` scaffold is also created in the project root:
 
@@ -86,13 +91,22 @@ A `.ai/` scaffold is also created in the project root:
 
 ### `agent-env update`
 
-Pull the latest knowledge-base from GitHub and update submodules.
+Pull the latest knowledge-base from GitHub and sync Claude skills.
 
 ```bash
 agent-env update
 
 # Stash uncommitted changes in the knowledge-base before pulling
 agent-env update --stash
+```
+
+After pulling, skills under `knowledge-base/agent_cli_file/skills/general-skills/` are automatically copied to `~/.claude/skills/`, making them available as `/skill-name` shortcuts in Claude Code. Other agents (Gemini, Codex, OpenCode) read skills directly from the knowledge-base path written by `agent-env init` and do not require a separate sync step.
+
+Run this command regularly (or via cron) to keep all agents up to date:
+
+```bash
+# Example crontab — daily at 09:00
+0 9 * * * agent-env update
 ```
 
 ---
