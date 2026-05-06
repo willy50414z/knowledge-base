@@ -43,7 +43,18 @@ def _ensure_kb(cfg: AppConfig) -> Path:
             click.echo(f"ERROR: Clone failed: {exc}", err=True)
             raise SystemExit(1)
         click.echo("Done.")
+    _ensure_anthropics_skills(cfg)
     return kb
+
+
+def _ensure_anthropics_skills(cfg: AppConfig) -> None:
+    dest = cfg.anthropics_skills_dir
+    if not dest.exists():
+        click.echo(f"Cloning anthropics-skills from {cfg.anthropics_skills_url} ...")
+        try:
+            github.clone(cfg.anthropics_skills_url, dest)
+        except github.GitError as exc:
+            click.echo(f"WARNING: Could not clone anthropics-skills: {exc}", err=True)
 
 
 @click.group()
@@ -138,11 +149,12 @@ def init(project_path, levels, agents, yes, force):
             action = inject_md_block(claude_md, claude_adapter.catalogue_block_content(kb))
             click.echo(f"  [{action}] {claude_md}")
 
-        skills_src = kb / "agent_cli_file" / "skills"
+        user_skills = Path.home() / ".claude" / "skills"
         click.echo("Syncing Claude skills...")
-        synced = sync_skills_dir(skills_src, Path.home() / ".claude" / "skills")
-        for s in synced:
+        for s in sync_skills_dir(kb / "agent_cli_file" / "skills", user_skills):
             click.echo(f"  synced skill: {s}")
+        for s in sync_skills_dir(cfg.anthropics_skills_dir / "skills", user_skills / "document-skills"):
+            click.echo(f"  synced skill: document-skills:{s}")
 
     if "codex" in selected_agents:
         rules_src = kb / "agent_cli_file" / "rules"
@@ -195,16 +207,26 @@ def update(do_stash):
     try:
         before, after = github.pull(kb, cfg.default_branch)
         click.echo(f"  {before[:8]} -> {after[:8]}")
-        click.echo("Updating submodules...")
-        github.update_submodules(kb)
     except github.GitError as exc:
         click.echo(f"ERROR: {exc}", err=True)
         raise SystemExit(1)
 
-    skills_src = kb / "agent_cli_file" / "skills" / "general-skills"
-    synced = sync_skills_dir(skills_src, Path.home() / ".claude" / "skills")
-    for s in synced:
+    anthro = cfg.anthropics_skills_dir
+    if github.is_git_repo(anthro):
+        click.echo("Pulling anthropics-skills...")
+        try:
+            before, after = github.pull(anthro, "main")
+            click.echo(f"  {before[:8]} -> {after[:8]}")
+        except github.GitError as exc:
+            click.echo(f"WARNING: anthropics-skills pull failed: {exc}", err=True)
+    else:
+        _ensure_anthropics_skills(cfg)
+
+    user_skills = Path.home() / ".claude" / "skills"
+    for s in sync_skills_dir(kb / "agent_cli_file" / "skills", user_skills):
         click.echo(f"  synced skill: {s}")
+    for s in sync_skills_dir(cfg.anthropics_skills_dir / "skills", user_skills / "document-skills"):
+        click.echo(f"  synced skill: document-skills:{s}")
 
     cfg.last_updated = datetime.now(timezone.utc).isoformat()
     save_config(cfg)
