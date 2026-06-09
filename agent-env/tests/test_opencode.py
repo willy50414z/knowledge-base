@@ -19,5 +19,5 @@ def test_project_targets_opencode_json_has_catalogue(kb_root, project_root):
 def test_is_managed_json(tmp_path):
     adapter = OpenCodeAdapter()
     f = tmp_path / "opencode.json"
-    f.write_text(json.dumps({"_managed_by": "agent-env", "permission": "allow"}), encoding="utf-8")
+    f.write_text(json.dumps({"instructions": ["agent_cli_file/catalogue.md"], "permission": "allow"}), encoding="utf-8")
     assert adapter.is_managed(f) is True

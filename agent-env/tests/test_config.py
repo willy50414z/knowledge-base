@@ -30,6 +30,8 @@ def test_set_config_value(tmp_path, monkeypatch):
 def test_kb_path_resolves_home(monkeypatch):
     cfg = AppConfig(
         repo_url="x", knowledge_base_path="~/.agent-env/knowledge-base",
+        anthropics_skills_url="https://github.com/anthropics/skills.git",
+        anthropics_skills_path="~/.agent-env/anthropics-skills",
         default_branch="main", last_updated=None,
         last_deployed_agents=[], schema_version=1,
     )

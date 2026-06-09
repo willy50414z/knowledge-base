@@ -16,7 +16,7 @@ from agent_env.agents.codex import CodexAdapter
 from agent_env.agents.gemini import GeminiAdapter
 from agent_env.agents.opencode import OpenCodeAdapter
 from agent_env.config import AppConfig, load_config, save_config, set_config_value
-from agent_env.deployer import ConflictAction, create_ai_scaffold, deploy_target, inject_md_block, inject_toml_key, sync_files_dir, sync_skills_dir
+from agent_env.deployer import ConflictAction, create_ai_scaffold, deploy_target, inject_toml_key, sync_files_dir, sync_skills_dir
 
 ADAPTERS: dict[str, AgentAdapter] = {
     "claude": ClaudeAdapter(),
@@ -106,7 +106,7 @@ def init(project_path, levels, agents, yes, force):
             inquirer.Checkbox(
                 "agents",
                 message="要啟用哪些 agents？",
-                choices=list(ADAPTERS.keys()),
+                choices=["claude", "codex", "opencode"],
                 default=["claude"],
             )
         ])
@@ -143,11 +143,10 @@ def init(project_path, levels, agents, yes, force):
             click.echo(f"  [+] {p}")
 
     if "claude" in selected_agents:
-        claude_adapter = ADAPTERS["claude"]
         if "user" in selected_levels:
-            claude_md = Path.home() / ".claude" / "CLAUDE.md"
-            action = inject_md_block(claude_md, claude_adapter.catalogue_block_content(kb))
-            click.echo(f"  [{action}] {claude_md}")
+            click.echo("Syncing Claude rules...")
+            for name in sync_files_dir(kb / "agent_cli_file" / "rules", Path.home() / ".claude" / "rules", "*.md"):
+                click.echo(f"  synced rule: {name}")
 
         user_skills = Path.home() / ".claude" / "skills"
         click.echo("Syncing Claude skills...")
@@ -227,6 +226,13 @@ def update(do_stash):
             click.echo(f"WARNING: anthropics-skills pull failed: {exc}", err=True)
     else:
         _ensure_anthropics_skills(cfg)
+
+    click.echo("Syncing rules...")
+    rules_src = kb / "agent_cli_file" / "rules"
+    for name in sync_files_dir(rules_src, Path.home() / ".claude" / "rules", "*.md"):
+        click.echo(f"  synced rule: {name}")
+    for name in sync_files_dir(rules_src, Path.home() / ".codex" / "rules", "*.md"):
+        click.echo(f"  synced rule: {name}")
 
     user_skills = Path.home() / ".claude" / "skills"
     for s in sync_skills_dir(kb / "agent_cli_file" / "skills", user_skills):

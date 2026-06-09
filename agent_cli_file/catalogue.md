@@ -30,6 +30,7 @@
 @./rules/trading-domain-constraints.md
 @./rules/development-standards.md
 @./rules/documentation-standards.md
+@./rules/project-level-sync.md
 
 - [agent-general-rules.md](./rules/agent-general-rules.md)
   規則總入口。適合當作 agent 冷啟動時的第一份索引。
@@ -47,6 +48,8 @@
   專案目錄結構、命名、編碼慣例與工作流完整性規範。
 - [documentation-standards.md](./rules/documentation-standards.md)
   文件與程式碼保持一致的常駐規則：工作流變動時更新文件、以程式碼為準。
+- [project-level-sync.md](./rules/project-level-sync.md)
+  project-level 新增或修改 rule/skill 時，必須放到 `.ai/` 後執行 sync 腳本分發到各 LLM 目錄。
 
 ### Skills
 

@@ -60,6 +60,45 @@ def _inject_marker(content: str, suffix: str, marker: str) -> str:
     return marker + "\n" + content
 
 
+SH_TEMPLATE = """\
+#!/bin/bash
+cd "$(dirname "$0")/.."
+
+mkdir -p .claude/rules .claude/skills .codex/rules .codex/skills
+
+cp .ai/rules/*.md .claude/rules/ 2>/dev/null || true
+cp .ai/rules/*.md .codex/rules/ 2>/dev/null || true
+
+for skill_dir in .ai/skills/*/; do
+    [ -d "$skill_dir" ] || continue
+    name=$(basename "$skill_dir")
+    cp -r "$skill_dir" ".claude/skills/$name"
+    cp -r "$skill_dir" ".codex/skills/$name"
+done 2>/dev/null || true
+
+echo "Sync complete."
+"""
+
+BAT_TEMPLATE = """\
+@echo off
+cd /d "%~dp0.."
+
+if not exist ".claude\\rules" mkdir ".claude\\rules"
+if not exist ".claude\\skills" mkdir ".claude\\skills"
+if not exist ".codex\\rules" mkdir ".codex\\rules"
+if not exist ".codex\\skills" mkdir ".codex\\skills"
+
+xcopy /y ".ai\\rules\\*.md" ".claude\\rules\\" 2>nul
+xcopy /y ".ai\\rules\\*.md" ".codex\\rules\\" 2>nul
+
+for /d %%D in (".ai\\skills\\*") do (
+    xcopy /s /e /y "%%D\\" ".claude\\skills\\%%~nxD\\" 2>nul
+    xcopy /s /e /y "%%D\\" ".codex\\skills\\%%~nxD\\" 2>nul
+)
+
+echo Sync complete.
+"""
+
 AI_CATALOGUE_TEMPLATE = """\
 # Project Skills & Rules
 
@@ -190,4 +229,16 @@ def create_ai_scaffold(project_root: Path) -> list[Path]:
     if not catalogue.exists():
         catalogue.write_text(AI_CATALOGUE_TEMPLATE, encoding="utf-8")
         created.append(catalogue)
+
+    sync_sh = project_root / ".ai" / "sync.sh"
+    if not sync_sh.exists():
+        sync_sh.write_text(SH_TEMPLATE, encoding="utf-8")
+        sync_sh.chmod(0o755)
+        created.append(sync_sh)
+
+    sync_bat = project_root / ".ai" / "sync.bat"
+    if not sync_bat.exists():
+        sync_bat.write_text(BAT_TEMPLATE, encoding="utf-8")
+        created.append(sync_bat)
+
     return created

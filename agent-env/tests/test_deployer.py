@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from agent_env.agents import MANAGED_MARKER_MD, DeployTarget
-from agent_env.deployer import ConflictAction, deploy_target
+from agent_env.deployer import ConflictAction, create_ai_scaffold, deploy_target
 
 
 def _target(dest: Path, content: str, marker: str = MANAGED_MARKER_MD) -> DeployTarget:
@@ -54,3 +54,31 @@ def test_deploy_template_injects_marker(tmp_path, kb_root):
     t = DeployTarget(dest=dest, template=template, content=None, managed_marker=marker)
     deploy_target(t, conflict=ConflictAction.OVERWRITE)
     assert '"_managed_by": "agent-env"' in dest.read_text(encoding="utf-8")
+
+
+def test_create_ai_scaffold_generates_sync_scripts(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    create_ai_scaffold(project)
+    assert (project / ".ai" / "sync.sh").exists()
+    assert (project / ".ai" / "sync.bat").exists()
+
+
+def test_create_ai_scaffold_sync_sh_not_overwritten(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / ".ai").mkdir()
+    existing = project / ".ai" / "sync.sh"
+    existing.write_text("# custom script", encoding="utf-8")
+    create_ai_scaffold(project)
+    assert existing.read_text(encoding="utf-8") == "# custom script"
+
+
+def test_create_ai_scaffold_sync_sh_contains_project_root_cd(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    create_ai_scaffold(project)
+    content = (project / ".ai" / "sync.sh").read_text(encoding="utf-8")
+    assert 'cd "$(dirname "$0")/.."' in content
+    assert ".claude/rules/" in content
+    assert ".codex/rules/" in content
